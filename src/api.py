@@ -7,15 +7,15 @@ from datetime import datetime
 from typing import Dict
 import logging
 
-from src.models import (
+from models import (
     BacktestRequest,
     BacktestResponse,
     HealthResponse,
     ErrorResponse,
     JobStatus
 )
-from src.data import fetch_ohlcv, DataFetchError
-from src.backtest import run_backtest
+from data import fetch_ohlcv, DataFetchError
+from backtest import run_backtest, BacktestResult
 
 
 # Configure logging
