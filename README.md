@@ -1,187 +1,233 @@
-# Backgrid - Learning Project: Backtesting Engine
+# Backgrid - Backtesting Engine
 
-**Status**: Phase 1 - MVP (In Progress)
+**Status**: ✅ **Phase 1 - MVP COMPLETE**
 
-**Goal**: Learn distributed systems by building a real backtesting platform from scratch
+**Goal**: Build a real backtesting platform from scratch, evolving from monolith to distributed system
 
-**Live Demo**: Not yet deployed (Phase 2 target)
+**Repository**: https://github.com/Thinh-nguyen-03/backgrid
 
 ---
 
-## Quick Demo (Phase 1)
+## Quick Start
 
 ```bash
-# Clone and run
-git clone https://github.com/you/backgrid && cd backgrid
-python -m venv .venv && source .venv/bin/activate
+# Clone and setup
+git clone https://github.com/Thinh-nguyen-03/backgrid
+cd backgrid
 pip install -r requirements.txt
+
+# Start the API
 python src/api.py
 
-# Submit a backtest
+# In another terminal, run smoke tests
+python scripts/smoke_test.py
+```
+
+### Submit Your First Backtest
+
+```bash
 curl -X POST http://localhost:8000/api/v1/jobs \
   -H "Content-Type: application/json" \
-  -d '{"symbol":"AAPL","strategy":"ma_crossover","start":"2020-01-01"}'
+  -d '{"symbol":"AAPL","strategy":"ma_crossover","params":{"fast":10,"slow":30},"start":"2023-01-01","end":"2023-12-31"}'
+```
 
-# Response
+**Example Response:**
+```json
 {
-  "job_id": "manual-2025-01-15-123456",
+  "job_id": "manual-20251109-014101",
   "status": "completed",
-  "sharpe": 1.23,
-  "max_drawdown": -0.18,
-  "equity_curve": [...],
-  "runtime_seconds": 2.3
+  "sharpe": 0.7739,
+  "max_drawdown": -0.1684,
+  "total_return": 0.1111,
+  "equity_curve": [10000, 10050, ...],
+  "runtime_seconds": 2.66
 }
 ```
 
 ---
 
-## Architecture Evolution
+## Phase 1 - What's Built ✅
 
-### Phase 1: Monolith (Now)
+### Architecture
 ```mermaid
 graph TD
     A[Client] -->|POST /jobs| B[FastAPI API]
-    B -->|Sync call| C[Backtest Runner]
+    B -->|Sync call| C[Backtest Engine]
     C -->|yfinance| D[Yahoo Finance]
-    C -->|SQLite| E[(SQLite DB)]
+    C -->|In-memory| E[(Job Results)]
 ```
 
-**Components:**
-- **API**: Single `POST /api/v1/jobs` endpoint
-- **DB**: SQLite file (backgrid.db)
-- **Data**: Direct yfinance calls
-- **Testing**: Manual + 3 unit tests
+### Features Implemented
+- ✅ **3 REST API endpoints** (health, submit job, get job)
+- ✅ **MA Crossover strategy** with configurable periods
+- ✅ **Real market data** from Yahoo Finance
+- ✅ **Performance metrics**: Sharpe ratio, max drawdown, total return
+- ✅ **Full equity curves** for visualization
+- ✅ **Comprehensive error handling** and validation
+- ✅ **99 passing unit tests** (models, data, backtest, API)
+- ✅ **Automated smoke tests** for end-to-end verification
 
-**Performance:**
-- **Throughput**: ~10 jobs/minute
-- **Latency**: 2-8s per job
-- **Status**: Working but synchronous
+### Performance (Measured)
+- **Latency**: 2-3 seconds per backtest
+- **Throughput**: ~20 jobs/minute (synchronous)
+- **Data fetched**: 250 trading days in <3s
+- **Test coverage**: 99 tests across all components
 
-### Phase 2: Async Workers (Planned)
-
-**Trigger**: Measured job latency >5s causes HTTP timeouts
-**Addition**: Celery + Redis + PostgreSQL
-
-**Target**: 10 jobs/sec with <2s latency
-**Expected**: Week 3-4
-
-### Phase 3: Performance (Future)
-
-**Trigger**: Profiler shows metrics calculation >50% runtime
-**Additions**: Go gRPC service + TimescaleDB + JWT Auth
-
-**Target**: 5-10x metrics speedup, <500ms queries
-**Expected**: Week 6-8 (only after Phase 2 receipts)
-
----
-
-## Decision Log
-
-Every major technology addition is documented with a complexity receipt:
-
-| Date | Technology | Problem | Impact | Receipt |
-|------|------------|---------|--------|---------|
-| TBD  | Celery + Redis | Jobs blocking API | - | [Pending] |
-| TBD  | Go gRPC | Metrics bottleneck | - | [Pending] |
-| TBD  | TimescaleDB | Slow queries on 25M rows | - | [Pending] |
-
-See full log: [DECISION_LOG.md](DECISION_LOG.md)
-
----
-
-## What Works Now (Phase 1)
-
-### Implemented
-- Single endpoint `POST /api/v1/jobs` (synchronous)
-- MA crossover strategy
-- Sharpe ratio and max drawdown calculation
-- SQLite result storage
-- Basic error handling
-
-### Known Limitations
-- Synchronous only (blocks for 2-8 seconds)
-- No data caching (re-fetches from Yahoo every time)
-- No authentication (single user only)
-- No UI (curl only)
-- No portfolio optimization
-
----
-
-## Tech Stack (Per Phase)
-
-### Phase 1 (Current)
-- **FastAPI**: API framework
-- **SQLite**: Database
-- **pandas**: Data analysis
-- **yfinance**: Market data
-- **pytest**: Testing
-
-### Phase 2 (Planned)
-- **Celery**: Task queue
-- **Redis**: Message broker
-- **PostgreSQL**: Concurrent DB
-
-### Phase 3 (Conditional)
-- **Go**: Metrics service (if profiling proves need)
-- **TimescaleDB**: Time-series DB (if queries slow)
-- **PyJWT**: Authentication (if multiple users)
-
----
-
-## Running Locally (Phase 1)
-
-```bash
-# Setup
-git clone https://github.com/you/backgrid && cd backgrid
-python -m venv .venv && source .venv/bin/activate
-pip install -r requirements.txt
-
-# Run
-python src/api.py
-
-# Test
-curl -X POST http://localhost:8000/api/v1/jobs \
-  -d '{"symbol":"AAPL","strategy":"ma_crossover","start":"2020-01-01"}' | jq
-```
+### Tech Stack
+- **FastAPI** - Modern async web framework
+- **pandas** - Data manipulation and analysis
+- **yfinance** - Market data provider (Yahoo Finance)
+- **pytest** - Testing framework
+- **In-memory storage** - Results stored during runtime
 
 ---
 
 ## Testing
 
-### Phase 1 Tests
+### Run All Unit Tests
 ```bash
-# Run unit tests
-pytest tests/
-
-# Manual smoke test
-./scripts/smoke_test.sh
+pytest tests/ -v
+# 99 tests, ~2 seconds
 ```
 
-**Coverage**: 50% target (core backtest logic)
+### Run Smoke Tests
+```bash
+# Start API first: python src/api.py
+python scripts/smoke_test.py
+# Tests: health check, job submission, retrieval, error handling
+```
+
+### Manual Testing
+```bash
+# Health check
+curl http://localhost:8000/api/v1/health
+
+# Interactive API docs
+open http://localhost:8000/docs
+```
 
 ---
 
-## Learning Goals
+## Known Limitations (Phase 1)
 
-### Technical:
-- [] Build working backtest engine (Phase 1)
-- [ ] Implement async workers (Phase 2)
-- [ ] Profile and optimize bottlenecks (Phase 3)
-- [ ] Learn Go concurrency (Phase 3)
+- **Synchronous execution** - Jobs block the API (no async workers yet)
+- **In-memory storage** - Results lost when server restarts
+- **Single strategy** - Only MA crossover implemented
+- **No data caching** - Re-fetches from Yahoo Finance every time
+- **No authentication** - Open API (single-user mode)
+- **No UI** - API only (curl/Postman/code)
 
-### Systems Thinking:
-- [ ] Document architectural decisions
-- [ ] Practice measurement-driven development
-- [ ] Show evolution over time
+These are **intentional** - Phase 1 proves the core logic works. Future phases will address them based on measured need.
+
+---
+
+## Project Structure
+
+```
+backgrid/
+├── src/
+│   ├── api.py          # FastAPI endpoints
+│   ├── backtest.py     # Core backtesting engine
+│   ├── data.py         # Market data fetcher
+│   └── models.py       # Pydantic request/response models
+├── tests/
+│   ├── test_api.py     # API endpoint tests (19 tests)
+│   ├── test_backtest.py # Backtest logic tests (32 tests)
+│   ├── test_data.py    # Data fetcher tests (26 tests)
+│   └── test_models.py  # Model validation tests (22 tests)
+├── scripts/
+│   └── smoke_test.py   # Automated smoke tests
+├── docs/               # Design docs and architecture
+└── requirements.txt
+```
+
+---
+
+## API Documentation
+
+### Endpoints
+
+**Health Check**
+```bash
+GET /api/v1/health
+# Returns: {"status": "ok", "phase": 1, "timestamp": "..."}
+```
+
+**Submit Backtest Job**
+```bash
+POST /api/v1/jobs
+Content-Type: application/json
+
+{
+  "symbol": "AAPL",
+  "strategy": "ma_crossover",
+  "params": {"fast": 10, "slow": 30},
+  "start": "2023-01-01",
+  "end": "2023-12-31"
+}
+
+# Returns: Job results with metrics and equity curve
+```
+
+**Get Job Results**
+```bash
+GET /api/v1/jobs/{job_id}
+# Returns: Same as POST response
+```
+
+**Interactive Docs**: http://localhost:8000/docs
+
+---
+
+## Future Phases (Planned)
+
+### Phase 2: Async Workers
+**When**: When synchronous execution becomes a bottleneck
+**What**: Celery + Redis for async job processing
+**Why**: Support multiple concurrent users
+
+### Phase 3: Performance & Scale
+**When**: After profiling shows specific bottlenecks
+**What**: Go gRPC service for metrics, TimescaleDB for time-series, JWT auth
+**Why**: Only add complexity when measurements prove it's needed
+
+See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for detailed evolution plan.
+
+---
+
+## Development Decisions
+
+All major decisions are documented in [docs/DECISION_LOG.md](docs/DECISION_LOG.md) with:
+- Problem being solved
+- Alternatives considered
+- Measurements/benchmarks
+- Impact after implementation
+
+Example decisions from Phase 1:
+- ✅ FastAPI over Flask (better async support for future)
+- ✅ In-memory storage over database (simplicity for MVP)
+- ✅ yfinance over paid data (free, good enough for learning)
+- ✅ MA crossover only (prove one strategy works first)
 
 ---
 
 ## Contributing
 
-This is a learning project, not production software. Feedback welcome, but expect honest, in-progress code.
+This is a **learning project** showing incremental system evolution. Feedback welcome!
+
+**Please note:**
+- Phase 1 is intentionally simple
+- Future complexity will be added based on measured need
+- Each phase is tagged in git history
 
 ---
 
 ## License
 
 MIT
+
+---
+
+## Acknowledgments
+
+Built to learn distributed systems through practical implementation.
