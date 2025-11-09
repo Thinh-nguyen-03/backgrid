@@ -6,3 +6,4 @@ pandas>=2.2.0  # Python 3.13 compatible
 yfinance==0.2.36
 pytest==7.4.4
 httpx==0.26.0  # For testing FastAPI endpoints
+requests>=2.31.0  # For smoke test script
