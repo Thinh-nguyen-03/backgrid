@@ -65,6 +65,43 @@ Test: AAPL 2023 (250 trading days)
 
 ---
 
+### Decision: Add Simple HTML UI
+
+**Date**: 2025-11-09
+
+**Problem**: Testing via curl/Postman requires command-line knowledge. Need faster iteration for manual testing.
+
+**Approach**:
+- Single HTML file served by FastAPI
+- Zero dependencies (no npm, no build step)
+- Pure vanilla JavaScript
+- <30 lines of code + markup
+
+**Implementation**:
+- Created [src/ui.py](../src/ui.py) (20 lines total)
+- Mounted in FastAPI with `app.include_router(ui_router)`
+- Form submits to existing `/api/v1/jobs` endpoint
+- Displays raw JSON response
+
+**Benefits**:
+- ✅ No build process or npm dependencies
+- ✅ Works instantly on `http://localhost:8000`
+- ✅ Easier for manual testing than curl
+- ✅ Shows real API responses (not hiding complexity)
+
+**Tradeoffs**:
+- ❌ No charts/visualization (just JSON)
+- ❌ No job history or saved results
+- ❌ Basic form validation only
+
+**Why This Approach**:
+1. **Zero dependencies**: Adding React/Vue would require build process and bloat
+2. **Inline HTML**: Keeping UI in single endpoint avoids static file serving
+3. **Raw JSON output**: Shows real API contract, no abstraction
+4. **Form over framework**: 20 lines vs thousands for minimal UI
+
+---
+
 ## Template for Future Decisions
 
 Every major technology addition must use this template:
