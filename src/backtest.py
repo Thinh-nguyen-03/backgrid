@@ -5,7 +5,6 @@ import numpy as np
 from typing import Dict, Any, List, Optional
 from datetime import datetime
 
-
 class BacktestResult:
     """Container for backtest results"""
 
@@ -38,7 +37,6 @@ class BacktestResult:
             "runtime_seconds": self.runtime_seconds,
             "created_at": self.created_at
         }
-
 
 def calculate_ma_crossover_signals(
     df: pd.DataFrame,
@@ -81,7 +79,6 @@ def calculate_ma_crossover_signals(
 
     return signals
 
-
 def calculate_returns(
     df: pd.DataFrame,
     signals: pd.Series,
@@ -115,7 +112,6 @@ def calculate_returns(
     equity_curve = equity_curve.fillna(initial_capital)
 
     return equity_curve
-
 
 def calculate_sharpe_ratio(
     equity_curve: pd.Series,
@@ -154,7 +150,6 @@ def calculate_sharpe_ratio(
 
     return float(sharpe_annualized)
 
-
 def calculate_max_drawdown(equity_curve: pd.Series) -> float:
     """
     Calculate maximum drawdown from equity curve.
@@ -179,7 +174,6 @@ def calculate_max_drawdown(equity_curve: pd.Series) -> float:
 
     return max_dd
 
-
 def calculate_total_return(equity_curve: pd.Series) -> float:
     """
     Calculate total return from equity curve.
@@ -202,7 +196,6 @@ def calculate_total_return(equity_curve: pd.Series) -> float:
     total_return = (final_value - initial_value) / initial_value
 
     return float(total_return)
-
 
 def run_backtest(
     df: pd.DataFrame,
@@ -263,7 +256,6 @@ def run_backtest(
         "runtime_seconds": round(runtime, 2),
         "created_at": datetime.utcnow()
     }
-
 
 def generate_job_id(prefix: str = "manual") -> str:
     """

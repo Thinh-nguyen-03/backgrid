@@ -17,14 +17,12 @@ from models import (
 from data import fetch_ohlcv, DataFetchError
 from backtest import run_backtest, BacktestResult
 
-
 # Configure logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 # In-memory storage for Phase 1 (will be replaced with SQLite in next step)
 job_results: Dict[str, dict] = {}
-
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -33,14 +31,12 @@ async def lifespan(app: FastAPI):
     yield
     logger.info("Shutting down Backgrid API")
 
-
 app = FastAPI(
     title="Backgrid API",
     description="Backtesting engine for trading strategies (Phase 1 - MVP)",
     version="0.1.0",
     lifespan=lifespan
 )
-
 
 @app.get("/api/v1/health", response_model=HealthResponse)
 async def health_check():
@@ -55,7 +51,6 @@ async def health_check():
         phase=1,
         timestamp=datetime.utcnow()
     )
-
 
 @app.post("/api/v1/jobs", response_model=BacktestResponse)
 async def submit_job(request: BacktestRequest):
@@ -143,7 +138,6 @@ async def submit_job(request: BacktestRequest):
             detail=f"Internal server error: {str(e)}"
         )
 
-
 @app.get("/api/v1/jobs/{job_id}", response_model=BacktestResponse)
 async def get_job(job_id: str):
     """
@@ -180,7 +174,6 @@ async def get_job(job_id: str):
         created_at=result["created_at"]
     )
 
-
 @app.exception_handler(HTTPException)
 async def http_exception_handler(request, exc: HTTPException):
     """Custom exception handler for HTTP exceptions"""
@@ -188,7 +181,6 @@ async def http_exception_handler(request, exc: HTTPException):
         status_code=exc.status_code,
         content={"error": exc.detail}
     )
-
 
 if __name__ == "__main__":
     import uvicorn
