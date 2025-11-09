@@ -7,16 +7,28 @@ from datetime import datetime
 from typing import Dict
 import logging
 
-from .models import (
-    BacktestRequest,
-    BacktestResponse,
-    HealthResponse,
-    ErrorResponse,
-    JobStatus
-)
-from .data import fetch_ohlcv, DataFetchError
-from .backtest import run_backtest, BacktestResult
-from .ui import router as ui_router
+try:
+    from .models import (
+        BacktestRequest,
+        BacktestResponse,
+        HealthResponse,
+        ErrorResponse,
+        JobStatus
+    )
+    from .data import fetch_ohlcv, DataFetchError
+    from .backtest import run_backtest, BacktestResult
+    from .ui import router as ui_router
+except ImportError:
+    from models import (
+        BacktestRequest,
+        BacktestResponse,
+        HealthResponse,
+        ErrorResponse,
+        JobStatus
+    )
+    from data import fetch_ohlcv, DataFetchError
+    from backtest import run_backtest, BacktestResult
+    from ui import router as ui_router
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
