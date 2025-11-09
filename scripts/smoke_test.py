@@ -1,39 +1,21 @@
-"""
-Smoke test script for Backgrid API (Phase 1)
-
-Usage:
-    1. Start the API server: python src/api.py
-    2. Run this script: python scripts/smoke_test.py
-"""
-
 import requests
 import time
 import sys
 from typing import Dict, Any
 
-
 BASE_URL = "http://localhost:8000"
 
-
 def print_test(name: str):
-    """Print test name"""
-    print(f"\n{'='*60}")
-    print(f"TEST: {name}")
-    print('='*60)
-
+    print(f"\nTEST: {name}")
 
 def print_success(message: str):
-    """Print success message"""
     print(f"✅ {message}")
 
 
 def print_error(message: str):
-    """Print error message"""
     print(f"❌ {message}")
 
-
 def print_result(result: Dict[str, Any]):
-    """Print formatted result"""
     for key, value in result.items():
         if key == "equity_curve":
             print(f"  {key}: [{len(value)} data points]")
@@ -42,7 +24,6 @@ def print_result(result: Dict[str, Any]):
 
 
 def test_health_check() -> bool:
-    """Test health check endpoint"""
     print_test("Health Check")
 
     try:
@@ -64,7 +45,6 @@ def test_health_check() -> bool:
 
 
 def test_submit_job() -> Dict[str, Any]:
-    """Test job submission"""
     print_test("Submit Backtest Job (AAPL 2023)")
 
     payload = {
@@ -76,7 +56,7 @@ def test_submit_job() -> Dict[str, Any]:
     }
 
     try:
-        print("📤 Submitting backtest job...")
+        print("Submitting backtest job")
         start_time = time.time()
 
         response = requests.post(
@@ -106,7 +86,6 @@ def test_submit_job() -> Dict[str, Any]:
 
 
 def test_get_job(job_id: str) -> bool:
-    """Test job retrieval"""
     print_test(f"Retrieve Job Results ({job_id})")
 
     try:
@@ -127,11 +106,10 @@ def test_get_job(job_id: str) -> bool:
 
 
 def test_invalid_symbol() -> bool:
-    """Test error handling with invalid symbol"""
     print_test("Error Handling (Invalid Symbol)")
 
     payload = {
-        "symbol": "INVALID@SYMBOL",  # Special char will fail validation
+        "symbol": "INVALID@SYMBOL",
         "strategy": "ma_crossover",
         "start": "2023-01-01"
     }
@@ -139,7 +117,6 @@ def test_invalid_symbol() -> bool:
     try:
         response = requests.post(f"{BASE_URL}/api/v1/jobs", json=payload)
 
-        # Accept either 400 (data fetch failed) or 422 (validation failed)
         if response.status_code in [400, 422]:
             error_data = response.json()
             print_success(f"Error handled correctly ({response.status_code})")
@@ -155,13 +132,12 @@ def test_invalid_symbol() -> bool:
 
 
 def test_invalid_params() -> bool:
-    """Test validation with invalid parameters"""
     print_test("Parameter Validation (fast >= slow)")
 
     payload = {
         "symbol": "AAPL",
         "strategy": "ma_crossover",
-        "params": {"fast": 30, "slow": 10},  # Invalid: fast >= slow
+        "params": {"fast": 30, "slow": 10},
         "start": "2023-01-01"
     }
 
@@ -181,37 +157,23 @@ def test_invalid_params() -> bool:
 
 
 def run_all_tests():
-    """Run all smoke tests"""
-    print("\n" + "="*60)
-    print("BACKGRID PHASE 1 SMOKE TESTS")
-    print("="*60)
+    print("BACKGRID SMOKE TESTS")
 
     results = []
 
-    # Test 1: Health check
     results.append(("Health Check", test_health_check()))
-
-    # Test 2: Submit job
     job_data = test_submit_job()
     results.append(("Submit Job", job_data is not None))
 
-    # Test 3: Retrieve job (only if submission succeeded)
     if job_data:
         job_id = job_data.get("job_id")
         results.append(("Retrieve Job", test_get_job(job_id)))
     else:
         results.append(("Retrieve Job", False))
 
-    # Test 4: Error handling
     results.append(("Invalid Symbol", test_invalid_symbol()))
 
-    # Test 5: Validation
     results.append(("Invalid Params", test_invalid_params()))
-
-    # Summary
-    print("\n" + "="*60)
-    print("TEST SUMMARY")
-    print("="*60)
 
     passed = sum(1 for _, result in results if result)
     total = len(results)
@@ -220,11 +182,8 @@ def run_all_tests():
         status = "✅ PASS" if result else "❌ FAIL"
         print(f"{status}: {name}")
 
-    print("\n" + "="*60)
     print(f"RESULTS: {passed}/{total} tests passed")
-    print("="*60)
 
-    # Exit code
     sys.exit(0 if passed == total else 1)
 
 

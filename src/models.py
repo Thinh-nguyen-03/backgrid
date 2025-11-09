@@ -5,11 +5,9 @@ from typing import Optional, Dict, Any, List
 from pydantic import BaseModel, Field, field_validator
 from enum import Enum
 
-
 class StrategyType(str, Enum):
     """Available trading strategies"""
     MA_CROSSOVER = "ma_crossover"
-
 
 class JobStatus(str, Enum):
     """Job execution status"""
@@ -17,7 +15,6 @@ class JobStatus(str, Enum):
     RUNNING = "running"  # Phase 2
     COMPLETED = "completed"
     FAILED = "failed"
-
 
 class BacktestRequest(BaseModel):
     """Request model for submitting a backtest job"""
@@ -89,7 +86,6 @@ class BacktestRequest(BaseModel):
         }
     }
 
-
 class BacktestResponse(BaseModel):
     """Response model for backtest results"""
     job_id: str = Field(..., description="Unique job identifier")
@@ -119,13 +115,11 @@ class BacktestResponse(BaseModel):
         }
     }
 
-
 class HealthResponse(BaseModel):
     """Health check response"""
     status: str = Field(default="ok")
     phase: int = Field(default=1, description="Current implementation phase")
     timestamp: datetime = Field(default_factory=datetime.utcnow)
-
 
 class ErrorResponse(BaseModel):
     """Error response model"""

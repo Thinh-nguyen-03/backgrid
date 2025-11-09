@@ -5,11 +5,9 @@ import pandas as pd
 from datetime import datetime
 from typing import Optional
 
-
 class DataFetchError(Exception):
     """Custom exception for data fetching errors"""
     pass
-
 
 def fetch_ohlcv(
     symbol: str,
@@ -90,7 +88,6 @@ def fetch_ohlcv(
 
     return df
 
-
 def validate_data(df: pd.DataFrame) -> bool:
     """
     Validate that the DataFrame contains valid OHLCV data.
@@ -121,7 +118,6 @@ def validate_data(df: pd.DataFrame) -> bool:
         return False
 
     return True
-
 
 def get_latest_close(df: pd.DataFrame) -> float:
     """

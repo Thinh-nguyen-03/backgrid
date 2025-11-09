@@ -52,10 +52,3 @@ TEST SUMMARY
 RESULTS: 5/5 tests passed
 ============================================================
 ```
-
-## Adding New Scripts
-
-When adding new scripts to this directory:
-1. Use descriptive filenames (e.g., `benchmark_performance.py`)
-2. Add usage instructions at the top of the file
-3. Update this README with a description
