@@ -18,12 +18,15 @@ pip install -r requirements.txt
 
 # Start the API
 python src/api.py
-
-# In another terminal, run smoke tests
-python scripts/smoke_test.py
 ```
 
-### Submit Your First Backtest
+### Web UI (Fastest Way)
+Open browser to http://localhost:8000
+- Fill in symbol, dates, MA parameters
+- Click Submit → See JSON results instantly
+- No build step, no npm, no framework
+
+### API Usage (Alternative)
 
 ```bash
 curl -X POST http://localhost:8000/api/v1/jobs \
@@ -58,6 +61,7 @@ graph TD
 ```
 
 ### Features Implemented
+- ✅ **Simple HTML UI** (single file, zero dependencies, <30 lines)
 - ✅ **3 REST API endpoints** (health, submit job, get job)
 - ✅ **MA Crossover strategy** with configurable periods
 - ✅ **Real market data** from Yahoo Finance
@@ -99,6 +103,9 @@ python scripts/smoke_test.py
 
 ### Manual Testing
 ```bash
+# Web UI (simplest)
+open http://localhost:8000
+
 # Health check
 curl http://localhost:8000/api/v1/health
 
@@ -115,7 +122,7 @@ open http://localhost:8000/docs
 - **Single strategy** - Only MA crossover implemented
 - **No data caching** - Re-fetches from Yahoo Finance every time
 - **No authentication** - Open API (single-user mode)
-- **No UI** - API only (curl/Postman/code)
+- **Basic UI** - Simple HTML form (no charts or advanced visualization)
 
 These are **intentional** - Phase 1 proves the core logic works. Future phases will address them based on measured need.
 
@@ -129,7 +136,8 @@ backgrid/
 │   ├── api.py          # FastAPI endpoints
 │   ├── backtest.py     # Core backtesting engine
 │   ├── data.py         # Market data fetcher
-│   └── models.py       # Pydantic request/response models
+│   ├── models.py       # Pydantic request/response models
+│   └── ui.py           # Simple HTML UI (20 lines)
 ├── tests/
 │   ├── test_api.py     # API endpoint tests (19 tests)
 │   ├── test_backtest.py # Backtest logic tests (32 tests)
