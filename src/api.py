@@ -7,15 +7,16 @@ from datetime import datetime
 from typing import Dict
 import logging
 
-from models import (
+from .models import (
     BacktestRequest,
     BacktestResponse,
     HealthResponse,
     ErrorResponse,
     JobStatus
 )
-from data import fetch_ohlcv, DataFetchError
-from backtest import run_backtest, BacktestResult
+from .data import fetch_ohlcv, DataFetchError
+from .backtest import run_backtest, BacktestResult
+from .ui import router as ui_router
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -37,6 +38,8 @@ app = FastAPI(
     version="0.1.0",
     lifespan=lifespan
 )
+
+app.include_router(ui_router)
 
 @app.get("/api/v1/health", response_model=HealthResponse)
 async def health_check():
