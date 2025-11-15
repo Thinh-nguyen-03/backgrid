@@ -1,0 +1,81 @@
+services:
+  # Redis - Message broker and result backend for Celery
+  redis:
+    image: redis:7-alpine
+    container_name: backgrid-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+    restart: unless-stopped
+
+  # PostgreSQL - Persistent storage for jobs and results
+  postgres:
+    image: postgres:16-alpine
+    container_name: backgrid-postgres
+    environment:
+      POSTGRES_DB: backgrid
+      POSTGRES_USER: backgrid
+      POSTGRES_PASSWORD: backgrid_dev_password
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U backgrid"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+    restart: unless-stopped
+
+  # API - FastAPI application
+  api:
+    build: .
+    container_name: backgrid-api
+    command: uvicorn src.api:app --host 0.0.0.0 --port 8000
+    ports:
+      - "8000:8000"
+    environment:
+      - DATABASE_URL=postgresql://backgrid:backgrid_dev_password@postgres:5432/backgrid
+      - CELERY_BROKER_URL=redis://redis:6379/0
+      - CELERY_RESULT_BACKEND=redis://redis:6379/0
+      - PYTHONUNBUFFERED=1
+    volumes:
+      - ./src:/app/src
+      - ./tests:/app/tests
+    depends_on:
+      redis:
+        condition: service_healthy
+      postgres:
+        condition: service_healthy
+    restart: unless-stopped
+
+  # Celery Worker - Async job processing
+  worker:
+    build: .
+    container_name: backgrid-worker
+    command: celery -A src.worker worker --loglevel=info --concurrency=4
+    environment:
+      - DATABASE_URL=postgresql://backgrid:backgrid_dev_password@postgres:5432/backgrid
+      - CELERY_BROKER_URL=redis://redis:6379/0
+      - CELERY_RESULT_BACKEND=redis://redis:6379/0
+      - PYTHONUNBUFFERED=1
+    volumes:
+      - ./src:/app/src
+    depends_on:
+      redis:
+        condition: service_healthy
+      postgres:
+        condition: service_healthy
+    restart: unless-stopped
+
+volumes:
+  redis_data:
+    driver: local
+  postgres_data:
+    driver: local
