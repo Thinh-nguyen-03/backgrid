@@ -7,3 +7,10 @@ yfinance==0.2.36
 pytest==7.4.4
 httpx==0.26.0  # For testing FastAPI endpoints
 requests>=2.31.0  # For smoke test script
+
+# Phase 2 - Async Workers Dependencies
+celery==5.3.4
+redis==5.0.1
+psycopg2-binary==2.9.9
+alembic==1.13.1
+SQLAlchemy==2.0.23
