@@ -20,6 +20,10 @@ RUN pip install --no-cache-dir -r requirements.txt
 COPY src/ ./src/
 COPY tests/ ./tests/
 
+# Copy Alembic configuration and migrations
+COPY alembic.ini .
+COPY migrations/ ./migrations/
+
 # Create non-root user for security
 RUN useradd -m -u 1000 backgrid && \
     chown -R backgrid:backgrid /app
