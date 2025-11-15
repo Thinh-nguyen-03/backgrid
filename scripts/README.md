@@ -19,11 +19,11 @@ This directory contains utility scripts for testing and running Backgrid.
    ```
 
 **What it tests:**
-- ✅ Health check endpoint
-- ✅ Job submission (AAPL backtest)
-- ✅ Job retrieval
-- ✅ Error handling (invalid symbol)
-- ✅ Validation (invalid parameters)
+- Health check endpoint
+- Job submission (AAPL backtest)
+- Job retrieval
+- Error handling (invalid symbol)
+- Validation (invalid parameters)
 
 **Expected output:**
 ```
@@ -34,7 +34,7 @@ BACKGRID PHASE 1 SMOKE TESTS
 ============================================================
 TEST: Health Check
 ============================================================
-✅ Health check passed
+[PASS] Health check passed
   status: ok
   phase: 1
   ...
@@ -42,11 +42,11 @@ TEST: Health Check
 ============================================================
 TEST SUMMARY
 ============================================================
-✅ PASS: Health Check
-✅ PASS: Submit Job
-✅ PASS: Retrieve Job
-✅ PASS: Invalid Symbol
-✅ PASS: Invalid Params
+[PASS]: Health Check
+[PASS]: Submit Job
+[PASS]: Retrieve Job
+[PASS]: Invalid Symbol
+[PASS]: Invalid Params
 
 ============================================================
 RESULTS: 5/5 tests passed

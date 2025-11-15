@@ -1,6 +1,6 @@
 # Backgrid - Backtesting Engine
 
-**Status**: ✅ **Phase 1 - MVP COMPLETE**
+**Status**: **Phase 1 - MVP COMPLETE**
 
 **Goal**: Build a real backtesting platform from scratch, evolving from monolith to distributed system
 
@@ -49,7 +49,7 @@ curl -X POST http://localhost:8000/api/v1/jobs \
 
 ---
 
-## Phase 1 - What's Built ✅
+## Phase 1 - What's Built
 
 ### Architecture
 ```mermaid
@@ -61,15 +61,15 @@ graph TD
 ```
 
 ### Features Implemented
-- ✅ **Simple HTML UI** (single file, zero dependencies, <30 lines)
-- ✅ **3 REST API endpoints** (health, submit job, get job)
-- ✅ **MA Crossover strategy** with configurable periods
-- ✅ **Real market data** from Yahoo Finance
-- ✅ **Performance metrics**: Sharpe ratio, max drawdown, total return
-- ✅ **Full equity curves** for visualization
-- ✅ **Comprehensive error handling** and validation
-- ✅ **99 passing unit tests** (models, data, backtest, API)
-- ✅ **Automated smoke tests** for end-to-end verification
+- **Simple HTML UI** (single file, zero dependencies, <30 lines)
+- **3 REST API endpoints** (health, submit job, get job)
+- **MA Crossover strategy** with configurable periods
+- **Real market data** from Yahoo Finance
+- **Performance metrics**: Sharpe ratio, max drawdown, total return
+- **Full equity curves** for visualization
+- **Comprehensive error handling** and validation
+- **99 passing unit tests** (models, data, backtest, API)
+- **Automated smoke tests** for end-to-end verification
 
 ### Performance (Measured)
 - **Latency**: 2-3 seconds per backtest
@@ -212,10 +212,10 @@ All major decisions are documented in [docs/DECISION_LOG.md](docs/DECISION_LOG.m
 - Impact after implementation
 
 Example decisions from Phase 1:
-- ✅ FastAPI over Flask (better async support for future)
-- ✅ In-memory storage over database (simplicity for MVP)
-- ✅ yfinance over paid data (free, good enough for learning)
-- ✅ MA crossover only (prove one strategy works first)
+- FastAPI over Flask (better async support for future)
+- In-memory storage over database (simplicity for MVP)
+- yfinance over paid data (free, good enough for learning)
+- MA crossover only (prove one strategy works first)
 
 ---
 
