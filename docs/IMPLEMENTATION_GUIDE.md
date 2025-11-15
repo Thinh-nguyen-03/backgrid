@@ -98,16 +98,16 @@ Create DECISION_LOG.md entry:
 ## Phase 1 - MVP (2025-01-15)
 
 ### What Works
-- ✅ Single endpoint backtest
-- ✅ MA crossover strategy
-- ✅ Sharpe ratio calculation
-- ✅ Results stored in SQLite
+- Single endpoint backtest
+- MA crossover strategy
+- Sharpe ratio calculation
+- Results stored in SQLite
 
 ### Known Limitations
-- ❌ Synchronous only (blocks for 2-8s)
-- ❌ No data caching (re-fetches every time)
-- ❌ No error handling for API failures
-- ❌ Single user only
+- Synchronous only (blocks for 2-8s)
+- No data caching (re-fetches every time)
+- No error handling for API failures
+- Single user only
 
 ### Metrics
 - Lines of code: 350
@@ -353,10 +353,10 @@ Migrate equity_points to TimescaleDB hypertable
 **Live Demo**: https://backgrid-demo.fly.dev
 
 ## What Works Now
-- ✅ Submit backtests via API
-- ✅ Async workers (Celery) - added 2025-01-20 [receipt](docs/decisions/celery.md)
-- ✅ PostgreSQL storage
-- ❌ Go metrics service (Phase 3)
+- Submit backtests via API
+- Async workers (Celery) - added 2025-01-20 [receipt](docs/decisions/celery.md)
+- PostgreSQL storage
+- Go metrics service (Phase 3) - Not yet implemented
 
 ## Quick Start
 ```bash
@@ -381,7 +381,7 @@ Every major addition gets an entry with the template above.
 
 **Good commits show evolution**:
 ```
-✅ feat: Add Parquet cache for Yahoo Finance data
+feat: Add Parquet cache for Yahoo Finance data
 
 Problem: Hitting rate limits after 50 requests/hour
 Solution: Cache OHLCV to data/cache/{symbol}_{start}_{end}.parquet
@@ -391,9 +391,9 @@ Files: src/data/cache.py, tests/test_cache.py
 
 **Bad commits**:
 ```
-❌ "Add Redis"
-❌ "WIP on workers"
-❌ "Various improvements"
+"Add Redis"
+"WIP on workers"
+"Various improvements"
 ```
 
 ---

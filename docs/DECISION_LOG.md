@@ -19,11 +19,11 @@ Every major technology addition is documented here with measurements and rationa
 - Direct yfinance data fetching (no caching)
 
 **What Works**:
-- ✅ 99 passing unit tests
-- ✅ 5/5 smoke tests passing
-- ✅ Backtest latency: 2-3 seconds
-- ✅ Full equity curves and metrics (Sharpe, drawdown, returns)
-- ✅ Comprehensive error handling
+- 99 passing unit tests
+- 5/5 smoke tests passing
+- Backtest latency: 2-3 seconds
+- Full equity curves and metrics (Sharpe, drawdown, returns)
+- Comprehensive error handling
 
 **Measured Performance**:
 ```
@@ -42,11 +42,11 @@ Test: AAPL 2023 (250 trading days)
 - **pytest**: Comprehensive testing
 
 **Explicitly NOT Implemented**:
-- ❌ Database (SQLite/PostgreSQL) - not needed yet
-- ❌ Async workers (Celery) - synchronous is fast enough
-- ❌ Data caching - re-fetching is acceptable for MVP
-- ❌ Multiple strategies - prove one works first
-- ❌ Authentication - single-user mode is fine
+- Database (SQLite/PostgreSQL) - not needed yet
+- Async workers (Celery) - synchronous is fast enough
+- Data caching - re-fetching is acceptable for MVP
+- Multiple strategies - prove one works first
+- Authentication - single-user mode is fine
 
 **Why These Decisions**:
 1. **In-memory storage**: Results are ephemeral during development. Persistence adds no value when iterating.
@@ -84,15 +84,15 @@ Test: AAPL 2023 (250 trading days)
 - Displays raw JSON response
 
 **Benefits**:
-- ✅ No build process or npm dependencies
-- ✅ Works instantly on `http://localhost:8000`
-- ✅ Easier for manual testing than curl
-- ✅ Shows real API responses (not hiding complexity)
+- No build process or npm dependencies
+- Works instantly on `http://localhost:8000`
+- Easier for manual testing than curl
+- Shows real API responses (not hiding complexity)
 
 **Tradeoffs**:
-- ❌ No charts/visualization (just JSON)
-- ❌ No job history or saved results
-- ❌ Basic form validation only
+- No charts/visualization (just JSON)
+- No job history or saved results
+- Basic form validation only
 
 **Why This Approach**:
 1. **Zero dependencies**: Adding React/Vue would require build process and bloat

@@ -9,11 +9,11 @@ def print_test(name: str):
     print(f"\nTEST: {name}")
 
 def print_success(message: str):
-    print(f"✅ {message}")
+    print(f"[PASS] {message}")
 
 
 def print_error(message: str):
-    print(f"❌ {message}")
+    print(f"[FAIL] {message}")
 
 def print_result(result: Dict[str, Any]):
     for key, value in result.items():
@@ -40,7 +40,7 @@ def test_health_check() -> bool:
 
     except Exception as e:
         print_error(f"Health check failed: {str(e)}")
-        print("💡 Make sure the API server is running: python src/api.py")
+        print("NOTE: Make sure the API server is running: python src/api.py")
         return False
 
 
@@ -179,7 +179,7 @@ def run_all_tests():
     total = len(results)
 
     for name, result in results:
-        status = "✅ PASS" if result else "❌ FAIL"
+        status = "[PASS]" if result else "[FAIL]"
         print(f"{status}: {name}")
 
     print(f"RESULTS: {passed}/{total} tests passed")
