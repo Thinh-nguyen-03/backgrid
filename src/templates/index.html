@@ -1,0 +1,719 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Backgrid | Industrial Pop</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@500;700&family=JetBrains+Mono:wght@700&family=Space+Grotesk:wght@700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
+    <style>
+        :root {
+            /* PALETTE: Industrial Pop */
+            --bg-app: #E2E8F0;          /* Slate 200 */
+            --bg-panel: #FFFFFF;
+            --color-ink: #020617;       /* Slate 950 (Black) */
+            --color-text-sub: #475569;
+
+            /* ACCENTS */
+            --color-accent-pop: #FDE047; /* Yellow 300 */
+            --color-accent-cyan: #06B6D4; /* Cyan 500 (New Hover Color) */
+            --color-success: #16A34A;
+            --color-error: #DC2626;
+
+            /* BRUTALIST VARIABLES */
+            --border-thick: 3px solid var(--color-ink);
+            --shadow-hard: 6px 6px 0px var(--color-ink);
+            --sidebar-width: 450px; /* Extended Width */
+
+            --font-head: 'Space Grotesk', sans-serif;
+            --font-ui: 'Inter', sans-serif;
+            --font-mono: 'JetBrains Mono', monospace;
+        }
+
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+
+        body {
+            background-color: var(--bg-app);
+            color: var(--color-ink);
+            font-family: var(--font-ui);
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+            background-image: radial-gradient(var(--color-text-sub) 1.5px, transparent 1.5px);
+            background-size: 24px 24px;
+        }
+
+        /* --- HEADER --- */
+        .app-header {
+            background: var(--bg-panel);
+            border-bottom: var(--border-thick);
+            padding: 0 1.5rem;
+            height: 80px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            z-index: 20;
+            position: relative;
+        }
+
+        .header-left {
+            display: flex;
+            align-items: center;
+            gap: 1.5rem;
+        }
+
+        /* MENU TOGGLE ICON */
+        .menu-toggle {
+            background: transparent;
+            border: none;
+            font-size: 2rem;
+            cursor: pointer;
+            color: var(--color-ink);
+            padding: 0.5rem;
+            transition: transform 0.1s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border: 2px solid transparent;
+        }
+        .menu-toggle:hover {
+            background: var(--color-accent-pop);
+            border: 2px solid var(--color-ink);
+            box-shadow: 4px 4px 0px var(--color-ink);
+        }
+        .menu-toggle:active { transform: translate(2px, 2px); box-shadow: none; }
+
+        /* BRANDING BLOCK (STRAIGHT RECTANGLE) */
+        .brand-block {
+            display: flex;
+            border: var(--border-thick);
+            box-shadow: var(--shadow-hard);
+        }
+
+        .brand-name {
+            background: var(--color-accent-pop);
+            padding: 0.5rem 1.2rem;
+            font-family: var(--font-head);
+            font-weight: 800;
+            font-size: 1.5rem;
+            text-transform: uppercase;
+            color: var(--color-ink);
+            border-right: var(--border-thick);
+        }
+
+        .brand-version {
+            background: var(--color-ink);
+            color: var(--color-accent-pop);
+            padding: 0.5rem 1rem;
+            font-family: var(--font-mono);
+            font-weight: 700;
+            display: flex;
+            align-items: center;
+        }
+
+
+        /* --- LAYOUT --- */
+        .workspace {
+            display: grid;
+            grid-template-columns: var(--sidebar-width) 1fr;
+            flex: 1;
+            overflow: hidden;
+            transition: grid-template-columns 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        /* COLLAPSED STATE CLASS */
+        .workspace.collapsed {
+            grid-template-columns: 0px 1fr;
+        }
+
+        /* --- SIDEBAR --- */
+        .config-panel {
+            background: var(--bg-panel);
+            border-right: var(--border-thick);
+            display: flex;
+            flex-direction: column;
+            overflow-y: auto;
+            overflow-x: hidden; /* Hide content when collapsing */
+            box-shadow: var(--shadow-hard);
+            z-index: 10;
+            width: var(--sidebar-width);
+        }
+
+        .workspace.collapsed .config-panel {
+            width: 0;
+            border-right: none;
+            box-shadow: none;
+        }
+
+        .config-form {
+            padding: 2rem;
+            display: flex;
+            flex-direction: column;
+            gap: 3rem;
+        }
+
+        .config-section {
+            position: relative;
+            padding: 2rem 1.5rem 1.5rem 1.5rem;
+            border: var(--border-thick);
+            background: #F8FAFC;
+        }
+
+        .section-badge {
+            position: absolute;
+            top: -16px;
+            left: -3px;
+            background: var(--color-ink);
+            color: #fff;
+            padding: 6px 12px;
+            font-family: var(--font-head);
+            font-size: 0.85rem;
+            font-weight: 800;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            border: var(--border-thick);
+            box-shadow: 4px 4px 0px rgba(0,0,0,0.2);
+            white-space: nowrap;
+        }
+
+        .input-group {
+            display: flex;
+            flex-direction: column;
+            gap: 0.8rem;
+            margin-bottom: 1.5rem;
+            width: 100%;
+        }
+
+        .input-group:last-child { margin-bottom: 0; }
+
+        .input-group label {
+            font-size: 0.9rem;
+            font-weight: 700;
+            color: var(--color-ink);
+            text-transform: uppercase;
+            font-family: var(--font-head);
+        }
+
+        /* INPUTS & SELECTS - FIXED FOR BETTER FIT */
+        .input-group input, .input-group select {
+            width: 100%;
+            padding: 0.7rem;
+            border: var(--border-thick);
+            border-radius: 0;
+            font-family: var(--font-mono);
+            font-size: 0.85rem;
+            font-weight: 600;
+            color: var(--color-ink);
+            background: #fff;
+            box-shadow: 2px 2px 0px var(--color-ink);
+            cursor: pointer;
+        }
+
+        .input-group input:focus, .input-group select:focus {
+            outline: none;
+            background: var(--color-accent-pop);
+            box-shadow: 6px 6px 0px var(--color-ink);
+            transform: translate(-2px, -2px);
+        }
+
+        /* Select specific overflow fix */
+        .input-group select {
+            appearance: none;
+            background-image: url("data:image/svg+xml;charset=US-ASCII,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%22292.4%22%20height%3D%22292.4%22%3E%3Cpath%20fill%3D%22%23000000%22%20d%3D%22M287%2069.4a17.6%2017.6%200%200%200-13-5.4H18.4c-5%200-9.3%201.8-12.9%205.4A17.6%2017.6%200%200%200%200%2082.2c0%205%201.8%209.3%205.4%2012.9l128%20127.9c3.6%203.6%207.8%205.4%2012.8%205.4s9.2-1.8%2012.8-5.4L287%2095c3.5-3.5%205.4-7.8%205.4-12.8%200-5-1.9-9.2-5.5-12.8z%22%2F%3E%3C%2Fsvg%3E");
+            background-repeat: no-repeat;
+            background-position: right 0.7rem center;
+            background-size: 0.7rem auto;
+            padding-right: 2.2rem;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
+        .row {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 1rem;
+        }
+
+        /* --- BUTTON REDESIGN --- */
+        button.run-btn {
+            background: var(--color-ink);
+            color: #fff;
+            border: var(--border-thick);
+            padding: 1.2rem;
+            font-family: var(--font-head);
+            font-size: 1.1rem;
+            font-weight: 800;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            cursor: pointer;
+            box-shadow: var(--shadow-hard);
+            transition: all 0.1s ease;
+            margin-top: 1rem;
+            width: 100%;
+        }
+
+        /* NEW HOVER: Cyan Shadow + Cyan Text on Black */
+        button.run-btn:hover {
+            transform: translate(-3px, -3px);
+            box-shadow: 9px 9px 0px var(--color-accent-cyan); /* CYAN Shadow */
+            color: var(--color-accent-cyan);
+        }
+
+        button.run-btn:active {
+            transform: translate(3px, 3px);
+            box-shadow: 0px 0px 0px;
+        }
+
+        button.run-btn:disabled {
+            background: #94a3b8;
+            border-color: #94a3b8;
+            color: #ccc;
+            box-shadow: none;
+            transform: none;
+            cursor: not-allowed;
+        }
+
+        /* --- MAIN STAGE --- */
+        .results-stage {
+            padding: 3rem;
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+            gap: 3rem;
+        }
+
+        .empty-state {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 100%;
+            border: 3px dashed var(--color-ink);
+            background: rgba(255,255,255,0.8);
+            color: var(--color-ink);
+            font-family: var(--font-head);
+        }
+
+        .kpi-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+            gap: 2rem;
+        }
+
+        .kpi-card {
+            background: var(--bg-panel);
+            border: var(--border-thick);
+            padding: 1.5rem;
+            box-shadow: var(--shadow-hard);
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            height: 160px;
+        }
+
+        .kpi-card.primary {
+            background: var(--color-accent-pop);
+            box-shadow: 8px 8px 0px var(--color-ink);
+        }
+
+        .kpi-label {
+            font-family: var(--font-head);
+            font-size: 0.9rem;
+            font-weight: 800;
+            color: var(--color-ink);
+            text-transform: uppercase;
+            border-bottom: var(--border-thick);
+            padding-bottom: 0.5rem;
+        }
+
+        .kpi-value {
+            font-family: var(--font-mono);
+            font-size: 2.5rem;
+            font-weight: 700;
+            margin-top: 1rem;
+        }
+
+        .text-green { color: var(--color-success); }
+        .text-red { color: var(--color-error); }
+
+        .console-output {
+            background: var(--color-ink);
+            color: var(--color-accent-pop);
+            border: var(--border-thick);
+            box-shadow: var(--shadow-hard);
+            font-family: var(--font-mono);
+            font-size: 0.9rem;
+            padding: 1rem;
+        }
+
+        /* =========================================
+           FLATPICKR OVERRIDES (Layout Fixed)
+        ========================================= */
+        .flatpickr-calendar {
+            border: var(--border-thick) !important;
+            border-radius: 0 !important;
+            box-shadow: var(--shadow-hard) !important;
+            font-family: var(--font-ui) !important;
+            background: var(--bg-panel) !important;
+            width: 340px !important; /* Wider to allow spacing */
+        }
+
+        .flatpickr-month {
+            background: var(--color-ink) !important;
+            color: var(--color-accent-pop) !important;
+            height: 60px !important;
+            border-bottom: var(--border-thick) !important;
+        }
+
+        /* MONTH DROPDOWN STYLING */
+        .flatpickr-months .flatpickr-monthDropdown-months {
+            background: var(--color-ink) !important;
+            color: #fff !important;
+            font-family: var(--font-mono) !important;
+            font-size: 0.9rem !important;
+            font-weight: 700 !important;
+            border: 2px solid #fff !important;
+            border-radius: 0 !important;
+            padding: 0.4rem 0.5rem !important;
+            margin-right: 10px;
+            width: 70px !important;
+            max-width: 70px !important;
+            height: 36px !important;
+            line-height: 1.2 !important;
+            vertical-align: middle !important;
+            display: inline-flex !important;
+            align-items: center !important;
+        }
+
+        /* YEAR DROPDOWN STYLING (Matching Month Dropdown) */
+        .flatpickr-current-month .numInputWrapper {
+            width: auto !important;
+            display: inline-flex !important;
+            align-items: center !important;
+        }
+
+        .flatpickr-current-month input.cur-year,
+        .flatpickr-current-month select.cur-year {
+            background: var(--color-ink) !important;
+            color: #fff !important;
+            font-family: var(--font-mono) !important;
+            font-size: 0.9rem !important;
+            font-weight: 700 !important;
+            border: 2px solid #fff !important;
+            border-radius: 0 !important;
+            padding: 0.4rem 0.5rem !important;
+            height: 36px !important;
+            line-height: 1.2 !important;
+            box-sizing: border-box !important;
+            appearance: none !important;
+            cursor: pointer !important;
+            width: 85px !important;
+            min-width: 85px !important;
+            vertical-align: middle !important;
+            display: inline-flex !important;
+            align-items: center !important;
+        }
+
+        /* Year dropdown arrow */
+        .flatpickr-current-month select.cur-year {
+            padding-right: 1.5rem !important;
+            background-image: url("data:image/svg+xml;charset=US-ASCII,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%22292.4%22%20height%3D%22292.4%22%3E%3Cpath%20fill%3D%22%23FFFFFF%22%20d%3D%22M287%2069.4a17.6%2017.6%200%200%200-13-5.4H18.4c-5%200-9.3%201.8-12.9%205.4A17.6%2017.6%200%200%200%200%2082.2c0%205%201.8%209.3%205.4%2012.9l128%20127.9c3.6%203.6%207.8%205.4%2012.8%205.4s9.2-1.8%2012.8-5.4L287%2095c3.5-3.5%205.4-7.8%205.4-12.8%200-5-1.9-9.2-5.5-12.8z%22%2F%3E%3C%2Fsvg%3E") !important;
+            background-repeat: no-repeat !important;
+            background-position: right 0.3rem center !important;
+            background-size: 0.5rem auto !important;
+        }
+
+        /* WEEKDAY ROW SPACING (Sun Mon ...) */
+        .flatpickr-weekdays {
+            background: #fff !important;
+            margin-top: 10px !important;
+            margin-bottom: 10px !important; /* Added bottom margin */
+        }
+
+        .flatpickr-weekday {
+            background: #fff !important;
+            color: var(--color-ink) !important;
+            font-weight: 800 !important;
+            text-transform: uppercase !important;
+        }
+
+        /* DAY GRID SPACING */
+        .flatpickr-days {
+            padding-left: 10px !important; /* Added side padding */
+            padding-right: 10px !important;
+            padding-bottom: 10px !important;
+            width: auto !important;
+        }
+
+        .dayContainer {
+            width: 100% !important;
+            min-width: 100% !important;
+            max-width: 100% !important;
+        }
+
+        .flatpickr-day {
+            border-radius: 0 !important;
+            border: 1px solid #f1f5f9 !important;
+            font-family: var(--font-mono) !important;
+            font-weight: 700 !important;
+            color: var(--color-ink) !important;
+            margin-top: 2px !important; /* Tiny gap between rows */
+        }
+
+        .flatpickr-day.selected, .flatpickr-day:hover {
+            background: var(--color-accent-cyan) !important; /* Cyan selection */
+            color: var(--color-ink) !important;
+            border-color: var(--color-ink) !important;
+            box-shadow: 3px 3px 0px var(--color-ink) !important;
+            position: relative;
+            z-index: 2;
+        }
+
+        .flatpickr-prev-month svg, .flatpickr-next-month svg { fill: var(--color-accent-pop) !important; }
+
+    </style>
+</head>
+<body>
+
+    <header class="app-header">
+        <div class="header-left">
+            <button class="menu-toggle" id="menuToggle">☰</button>
+
+            <div class="brand-block">
+                <div class="brand-name">BACKGRID</div>
+                <div class="brand-version">v0.1.0</div>
+            </div>
+        </div>
+    </header>
+
+    <div class="workspace" id="workspace">
+        <aside class="config-panel">
+            <form id="form" class="config-form">
+
+                <div class="config-section">
+                    <div class="section-badge">Universe Setup</div>
+                    <div class="input-group">
+                        <label>Ticker Symbol</label>
+                        <input type="text" name="symbol" value="AAPL" required style="text-transform: uppercase;">
+                    </div>
+
+                    <div class="row">
+                        <div class="input-group">
+                            <label>Start Date</label>
+                            <input type="text" id="start-date" name="start" value="2020-01-01" required>
+                        </div>
+                        <div class="input-group">
+                            <label>End Date</label>
+                            <input type="text" id="end-date" name="end" value="2023-12-31" required>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="config-section">
+                    <div class="section-badge">Strategy Logic</div>
+                    <div class="input-group">
+                        <label>Strategy Model</label>
+                        <select name="strategy_model">
+                            <option selected>Moving Average Crossover</option>
+                            <option>Mean Reversion Bollinger</option>
+                            <option>Statistical Arbitrage Pairs</option>
+                        </select>
+                    </div>
+
+                    <div class="row">
+                        <div class="input-group">
+                            <label>Fast Period</label>
+                            <input type="number" name="fast" value="10" min="2">
+                        </div>
+                        <div class="input-group">
+                            <label>Slow Period</label>
+                            <input type="number" name="slow" value="30" min="5">
+                        </div>
+                    </div>
+                </div>
+
+                <div class="config-section" style="opacity: 0.5; border-style: dashed; background: transparent;">
+                     <div class="section-badge" style="background: #94a3b8; border-color: #94a3b8;">Execution (P2)</div>
+                     <div class="row" style="pointer-events: none;">
+                        <div class="input-group">
+                            <label>Initial Cash</label>
+                            <input type="text" value="$100,000" disabled style="box-shadow: none; cursor: not-allowed;">
+                        </div>
+                        <div class="input-group">
+                            <label>Comm ($)</label>
+                            <input type="text" value="0.00" disabled style="box-shadow: none; cursor: not-allowed;">
+                        </div>
+                     </div>
+                 </div>
+
+                <button type="submit" id="submitBtn" class="run-btn">INITIALIZE BACKTEST</button>
+            </form>
+        </aside>
+
+        <main class="results-stage" id="results">
+            <div class="empty-state">
+                <div style="font-size: 4rem; margin-bottom: 1rem; font-weight: 800;">///</div>
+                <div style="font-size: 1.2rem; font-weight: 700; text-transform: uppercase;">Awaiting Input Parameters</div>
+            </div>
+        </main>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
+    <script>
+        // --- SIDEBAR TOGGLE LOGIC ---
+        const menuToggle = document.getElementById('menuToggle');
+        const workspace = document.getElementById('workspace');
+
+        if (menuToggle && workspace) {
+            menuToggle.addEventListener('click', () => {
+                workspace.classList.toggle('collapsed');
+            });
+        }
+
+        // --- CALENDAR INITIALIZATION (COMPACT DATE FORMAT) ---
+        const commonConfig = {
+            dateFormat: "Y-m-d",
+            allowInput: true,
+            altInput: true,
+            altFormat: "M j, Y",  // Shorter format: Jan 1, 2020
+            disableMobile: true,
+            locale: {
+                months: {
+                    shorthand: ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'],
+                    longhand: ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
+                }
+            },
+            onReady: function(selectedDates, dateStr, instance) {
+                // Convert year input to dropdown
+                const yearInput = instance.calendarContainer.querySelector('.cur-year');
+                if (yearInput && yearInput.tagName === 'INPUT') {
+                    const currentYear = yearInput.value || new Date().getFullYear();
+                    const yearSelect = document.createElement('select');
+                    yearSelect.className = 'cur-year';
+
+                    // Create year options (1990 to current year + 10)
+                    const startYear = 1990;
+                    const endYear = new Date().getFullYear() + 10;
+
+                    for (let year = startYear; year <= endYear; year++) {
+                        const option = document.createElement('option');
+                        option.value = year;
+                        option.textContent = year;
+                        if (year == currentYear) {
+                            option.selected = true;
+                        }
+                        yearSelect.appendChild(option);
+                    }
+
+                    // Handle year change
+                    yearSelect.addEventListener('change', function() {
+                        const newYear = parseInt(this.value);
+                        const currentMonth = instance.currentMonth;
+                        instance.changeYear(newYear);
+                        instance.changeMonth(currentMonth, false);
+                    });
+
+                    // Replace input with select
+                    yearInput.parentNode.replaceChild(yearSelect, yearInput);
+                }
+            }
+        };
+        flatpickr("#start-date", { ...commonConfig, defaultDate: "2020-01-01" });
+        flatpickr("#end-date", { ...commonConfig, defaultDate: "2023-12-31" });
+
+        // --- BACKTEST LOGIC ---
+        const form = document.getElementById('form');
+        const submitBtn = document.getElementById('submitBtn');
+        const results = document.getElementById('results');
+
+        form.onsubmit = async (e) => {
+            e.preventDefault();
+            submitBtn.disabled = true;
+            submitBtn.textContent = 'PROCESSING...';
+            results.innerHTML = '<div class="empty-state"><div style="font-size: 2rem; margin-bottom: 1rem; font-weight: 800;">⏳</div><div style="font-size: 1.2rem; font-weight: 700; text-transform: uppercase;">Running backtest...</div></div>';
+
+            const formData = new FormData(form);
+            const body = {
+                symbol: formData.get('symbol').trim().toUpperCase(),
+                strategy: 'ma_crossover',
+                start: formData.get('start'),
+                end: formData.get('end'),
+                params: {
+                    fast: parseInt(formData.get('fast')),
+                    slow: parseInt(formData.get('slow'))
+                }
+            };
+
+            try {
+                const res = await fetch("/api/v1/jobs", {
+                    method: "POST",
+                    headers: {"Content-Type": "application/json"},
+                    body: JSON.stringify(body)
+                });
+
+                const data = await res.json();
+
+                if (!res.ok) {
+                    results.innerHTML = `<div style="padding: 2rem; background: var(--color-error); color: #fff; border: var(--border-thick); box-shadow: var(--shadow-hard); font-weight: 700;">ERROR: ${data.error || data.detail || 'Unknown error'}</div>`;
+                    return;
+                }
+
+                const fmt = (n, suff='') => n ? n.toFixed(2) + suff : 'N/A';
+                const isPos = (n) => n >= 0 ? 'text-green' : 'text-red';
+
+                results.innerHTML = `
+                    <div class="kpi-grid">
+                        <div class="kpi-card primary">
+                            <div class="kpi-label">Sharpe Ratio</div>
+                            <div class="kpi-value" style="color: var(--color-ink)">${data.sharpe?.toFixed(3) || 'N/A'}</div>
+                        </div>
+                        <div class="kpi-card">
+                            <div class="kpi-label">Total Return</div>
+                            <div class="kpi-value ${isPos(data.total_return)}">${fmt(data.total_return * 100, '%')}</div>
+                        </div>
+                        <div class="kpi-card">
+                            <div class="kpi-label">Max Drawdown</div>
+                            <div class="kpi-value text-red">${fmt(data.max_drawdown * 100, '%')}</div>
+                        </div>
+                        <div class="kpi-card">
+                            <div class="kpi-label">Runtime</div>
+                            <div class="kpi-value" style="color: var(--color-ink);">${fmt(data.runtime_seconds, 's')}</div>
+                        </div>
+                    </div>
+
+                    <div style="
+                        background: #fff;
+                        border: var(--border-thick);
+                        box-shadow: var(--shadow-hard);
+                        height: 400px;
+                        display: flex;
+                        align-items: center;
+                        justify-content: center;
+                        background-image: linear-gradient(45deg, var(--color-ink) 25%, transparent 25%, transparent 75%, var(--color-ink) 75%, var(--color-ink)), linear-gradient(45deg, var(--color-ink) 25%, transparent 25%, transparent 75%, var(--color-ink) 75%, var(--color-ink));
+                        background-position: 0 0, 10px 10px;
+                        background-size: 20px 20px;
+                        opacity: 0.1;
+                    ">
+                        <div style="opacity: 1; color: var(--color-ink); font-weight: 800; font-size: 1.5rem;">PHASE 2 CHART AREA</div>
+                    </div>
+
+                    <details class="console-output" open>
+                        <summary style="cursor: pointer; font-weight: 700; margin-bottom: 0.5rem;">> SYSTEM_LOG</summary>
+                        <pre>${JSON.stringify(data, null, 2)}</pre>
+                    </details>
+                `;
+
+            } catch (err) {
+                results.innerHTML = `<div style="padding: 2rem; background: var(--color-error); color: #fff; border: var(--border-thick); box-shadow: var(--shadow-hard); font-weight: 700;">NETWORK ERROR: ${err.message}</div>`;
+            } finally {
+                submitBtn.disabled = false;
+                submitBtn.textContent = 'INITIALIZE BACKTEST';
+            }
+        };
+    </script>
+</body>
+</html>
