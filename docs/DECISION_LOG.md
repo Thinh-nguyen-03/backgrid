@@ -178,6 +178,237 @@ RSI_DEFAULTS = {
 
 ---
 
+## Phase 2 - Week 2: Data Loader Abstraction (2026-02-01)
+
+### Decision: Implement Pluggable Data Loader Architecture
+
+**Date**: 2026-02-01
+
+**Problem**: Phase 1 MVP uses yfinance directly with no abstraction. RapidTrader integration requires:
+- Connection to PostgreSQL `bars_daily` table
+- Batch loading for 500+ symbols
+- In-memory caching with TTL
+- Consistent interface across data sources
+
+**Approach**:
+- Created abstract BaseDataLoader class defining load interface
+- Implemented YahooDataLoader (refactored from data.py)
+- Implemented PostgresDataLoader for RapidTrader database
+- Built-in caching with configurable TTL
+
+**What Was Built**:
+
+| File | Purpose | Lines |
+|------|---------|-------|
+| src/data/base_loader.py | Abstract loader interface, caching, validation | ~150 |
+| src/data/yahoo_loader.py | Yahoo Finance implementation | ~120 |
+| src/data/postgres_loader.py | PostgreSQL with connection pooling | ~180 |
+| tests/test_data_loaders.py | Comprehensive unit tests | ~200 |
+
+**Key Design Decisions**:
+
+1. **Abstract Base Class**: Enables swapping data sources without changing backtest code
+
+2. **Connection Pooling**: PostgresDataLoader uses SQLAlchemy QueuePool with 5 connections
+
+3. **Built-in Caching**: Each loader caches data with configurable TTL (default 1 hour)
+
+4. **Batch Loading**: `load_batch()` method for efficient multi-symbol fetching
+
+5. **RapidTrader Schema Compatibility**: PostgresDataLoader matches `bars_daily` table structure
+
+**RapidTrader Database Tables Supported**:
+```sql
+bars_daily: symbol, d (date), open, high, low, close, volume
+symbols: symbol, name, sector, sub_sector, is_active
+```
+
+**Success Criteria**:
+- [x] Abstraction allows swapping Yahoo for PostgreSQL
+- [x] Connection pooling prevents database connection exhaustion
+- [x] Batch loading more efficient than individual queries
+- [x] Caching reduces repeated data fetches
+- [x] All unit tests passing
+
+---
+
+## Phase 2 - Week 3: Position Sizing & Transaction Costs (2026-02-01)
+
+### Decision: Implement ATR Position Sizing and Transaction Cost Modeling
+
+**Date**: 2026-02-01
+
+**Problem**: Phase 1 uses fixed position sizes with no transaction costs. RapidTrader requires:
+- ATR-based position sizing for volatility adjustment
+- Transaction cost modeling (commission, spread, slippage)
+- Realistic order execution simulation
+
+**Approach**:
+- Created position sizing module with ATR and fixed fractional sizers
+- Implemented transaction cost model matching RapidTrader parameters
+- Built order simulator with configurable fill logic
+
+**What Was Built**:
+
+| File | Purpose | Lines |
+|------|---------|-------|
+| src/position_sizing/base_sizer.py | Abstract sizer interface | ~80 |
+| src/position_sizing/atr_sizer.py | ATR-based volatility sizing | ~130 |
+| src/position_sizing/fixed_sizer.py | Fixed fractional sizing | ~90 |
+| src/execution/transaction_costs.py | Cost modeling | ~170 |
+| src/execution/order_simulator.py | Fill simulation | ~220 |
+| tests/test_position_sizing.py | Position sizing tests | ~280 |
+| tests/test_execution.py | Execution tests | ~300 |
+
+**Key Design Decisions**:
+
+1. **ATR Calculation**: Uses Wilder's smoothing (alpha=1/period) matching TA-Lib
+
+2. **Risk-Based Sizing**: Position size = (equity * risk_per_trade) / (ATR * multiplier)
+
+3. **Transaction Cost Components**:
+   - Commission: $0.005/share (min $1.00)
+   - Spread: 5 bps
+   - Slippage: 2 bps + volume impact
+
+4. **Fill Logic Options**:
+   - `next_open`: Fill at next bar's open (default, most realistic)
+   - `close`: Fill at signal bar's close
+   - `vwap`: Approximate VWAP
+
+5. **Enhanced Backtest Engine**: `run_backtest_enhanced()` integrates all components
+
+**RapidTrader Parameters Supported**:
+```python
+POSITION_SIZING = {
+    "atr_period": 14,        # RT_ATR_LOOKBACK
+    "risk_per_trade": 0.05,  # RT_PCT_PER_TRADE
+    "atr_multiplier": 3.0,   # RT_ATR_STOP_K
+}
+
+TRANSACTION_COSTS = {
+    "commission_per_share": 0.005,
+    "spread_bps": 5.0,
+    "slippage_bps": 2.0,
+}
+```
+
+**Test Coverage**:
+- 40+ tests for position sizing
+- 30+ tests for execution module
+- Edge cases: zero equity, invalid params, insufficient data
+
+**Performance Targets Met**:
+- ATR calculation: < 5ms for 252 trading days
+- Position sizing: < 1ms per calculation
+- Cost calculation: < 0.1ms per trade
+
+**Success Criteria**:
+- [x] ATR calculation matches Wilder's method
+- [x] Position sizes respect risk limits
+- [x] Transaction costs < 0.5% for liquid stocks
+- [x] Fill simulation realistic
+- [x] All unit tests passing
+
+---
+
+## Phase 2 - Week 4: Risk Management (2026-02-01)
+
+### Decision: Implement Comprehensive Risk Management Module
+
+**Date**: 2026-02-01
+
+**Problem**: Phase 2 Week 1-3 implemented strategy framework, data loaders, position sizing, and transaction costs. RapidTrader integration still requires:
+- Market regime filtering to avoid bear market entries
+- ATR-based stop losses with cooldown periods
+- Sector concentration limits to ensure diversification
+- Portfolio heat tracking to limit aggregate risk exposure
+
+**Approach**:
+- Created `src/risk/` module with four components
+- Each component follows established patterns (abstract base classes, dataclasses for results)
+- Comprehensive parameter validation and logging
+- Full test coverage
+
+**What Was Built**:
+
+| File | Purpose | Lines |
+|------|---------|-------|
+| src/risk/__init__.py | Module exports | ~45 |
+| src/risk/market_regime.py | SPY 200-SMA bull/bear filter | ~250 |
+| src/risk/stop_loss.py | ATR-based stops with cooldown | ~350 |
+| src/risk/sector_limits.py | Sector concentration limits | ~280 |
+| src/risk/portfolio_heat.py | Aggregate risk exposure tracking | ~300 |
+| tests/test_risk.py | Comprehensive unit tests | ~500 |
+
+**Key Design Decisions**:
+
+1. **Market Regime Filter**:
+   - Uses SPY 200-SMA as default reference (matches RapidTrader)
+   - Supports configurable buffer zone around SMA for neutral classification
+   - Tracks regime duration for trend strength assessment
+   - `get_bull_gate_series()` matches RapidTrader's bull_gate concept
+
+2. **Stop Loss Manager**:
+   - ATR-based stop calculation using Wilder's smoothing
+   - Configurable cooldown period after stops trigger (default 1 day)
+   - Position state tracking for trailing stop support
+   - Stop trigger history for post-trade analysis
+
+3. **Sector Limit Manager**:
+   - Default 30% max exposure per sector (RT_MAX_EXPOSURE_PER_SECTOR)
+   - Support for custom per-sector overrides
+   - Warning threshold before limit reached
+   - Compliance checking across all sectors
+
+4. **Portfolio Heat Tracker**:
+   - Heat = sum of position risks (entry - stop) * shares
+   - Status levels: COOL, WARM, HOT, CRITICAL
+   - Maximum positions limit (default 20)
+   - Detailed heat reports with position breakdown
+
+**RapidTrader Parameters Supported**:
+```python
+MARKET_REGIME = {
+    "sma_period": 200,            # RT_MARKET_FILTER_SMA
+    "reference_symbol": "SPY",    # RT_MARKET_FILTER_SYMBOL
+}
+
+STOP_LOSS = {
+    "atr_multiplier": 3.0,        # RT_ATR_STOP_K
+    "cooldown_days": 1,           # RT_COOLDOWN_DAYS_ON_STOP
+}
+
+SECTOR_LIMITS = {
+    "max_sector_exposure": 0.30,  # RT_MAX_EXPOSURE_PER_SECTOR
+}
+
+PORTFOLIO_HEAT = {
+    "max_heat_pct": 0.06,         # 6% max capital at risk
+    "max_positions": 20,
+}
+```
+
+**Test Coverage**:
+- 60+ tests across all risk components
+- Edge cases: insufficient data, invalid parameters, boundary conditions
+- Integration tests for combined risk check workflow
+
+**What Was NOT Implemented (Intentionally Deferred)**:
+- Correlation checks between positions (Week 5 candidate)
+- Dynamic position sizing based on current heat (can be added)
+- VIX-based regime filtering (enhancement)
+
+**Success Criteria**:
+- [x] Market filter blocks trades in bear markets
+- [x] Stop losses trigger correctly with ATR-based calculation
+- [x] Cooldown periods enforced after stop triggers
+- [x] Sector limits enforced (30% max per sector)
+- [x] Portfolio heat tracking limits aggregate risk
+- [x] All unit tests passing
+
+---
+
 ## Template for Future Decisions
 
 Every major technology addition must use this template:

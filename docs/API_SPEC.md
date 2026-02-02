@@ -146,3 +146,122 @@ Health check endpoint.
 
 - **GET /jobs**: Will include pagination for large result sets
 - **User isolation**: Results scoped to authenticated user
+
+---
+
+## Python SDK Reference (Phase 2 - Week 2 & 3)
+
+### Data Loaders
+
+All data loaders implement the same interface via `BaseDataLoader`:
+
+```python
+from src.data import YahooDataLoader, PostgresDataLoader
+
+# Yahoo Finance (default)
+loader = YahooDataLoader(cache_ttl=3600)
+df = loader.load("AAPL", "2020-01-01", "2023-12-31")
+
+# Batch loading
+dfs = loader.load_batch(["AAPL", "MSFT", "GOOG"], "2020-01-01", "2023-12-31")
+
+# PostgreSQL (RapidTrader)
+from src.data import PostgresLoaderConfig
+config = PostgresLoaderConfig(
+    host="localhost",
+    port=5432,
+    database="rapidtrader",
+    user="user",
+    password="password"
+)
+pg_loader = PostgresDataLoader(config)
+df = pg_loader.load("AAPL", "2020-01-01", "2023-12-31")
+```
+
+### Strategies
+
+```python
+from src.strategies import MAStrategy, RSIStrategy, StrategyManager, CombinationMethod
+
+# Single strategy
+ma_strategy = MAStrategy({"fast": 10, "slow": 30})
+signals = ma_strategy.calculate_signals(df)
+
+# RSI with RapidTrader parameters
+rsi_strategy = RSIStrategy({
+    "rsi_period": 14,
+    "oversold_threshold": 30,
+    "overbought_threshold": 55,
+    "confirmation_window": 3,
+    "min_confirmation_count": 2
+})
+
+# Multi-strategy combination
+manager = StrategyManager()
+manager.add_strategy("ma", ma_strategy)
+manager.add_strategy("rsi", rsi_strategy)
+combined_signals = manager.combine_signals(df, method=CombinationMethod.PRIORITY)
+```
+
+### Position Sizing
+
+```python
+from src.position_sizing import ATRSizer, FixedFractionalSizer
+
+# ATR-based sizing (RapidTrader compatible)
+sizer = ATRSizer(
+    atr_period=14,
+    risk_per_trade=0.05,
+    atr_multiplier=3.0
+)
+result = sizer.calculate(
+    df=df,
+    equity=100000.0,
+    entry_price=150.0
+)
+# result.shares, result.position_value, result.stop_price
+
+# Fixed fractional sizing
+fixed_sizer = FixedFractionalSizer(fraction=0.10)
+result = fixed_sizer.calculate(equity=100000.0, entry_price=150.0)
+```
+
+### Transaction Costs
+
+```python
+from src.execution import TransactionCostModel, OrderSimulator
+
+# Cost model with RapidTrader parameters
+costs = TransactionCostModel(
+    commission_per_share=0.005,
+    min_commission=1.00,
+    spread_bps=5.0,
+    slippage_bps=2.0
+)
+total_cost = costs.calculate(shares=100, price=150.0, volume=1000000)
+
+# Order simulation
+simulator = OrderSimulator(cost_model=costs, fill_at="next_open")
+fill = simulator.execute(order, df, bar_index=10)
+```
+
+### Enhanced Backtest
+
+```python
+from src.backtest import run_backtest_enhanced, BacktestConfig
+from src.strategies import RSIStrategy
+from src.position_sizing import ATRSizer
+
+config = BacktestConfig(
+    initial_capital=100000.0,
+    position_sizer=ATRSizer(atr_period=14, risk_per_trade=0.05),
+    cost_model=TransactionCostModel()
+)
+
+results = run_backtest_enhanced(
+    df=df,
+    strategy=RSIStrategy({"rsi_period": 14}),
+    config=config
+)
+# results.equity_curve, results.trades, results.metrics
+```

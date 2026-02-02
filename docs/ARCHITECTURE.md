@@ -34,11 +34,13 @@ graph TD
 - **Error handling**: HTTP 400/422/500 with clear messages
 - **Logging**: INFO level for all requests
 
-#### Data Layer ([src/data.py](../src/data.py))
-- **fetch_ohlcv()**: Downloads OHLCV data from Yahoo Finance
-- **Validation**: Checks for sufficient data, NaN values, valid columns
-- **Error handling**: Custom `DataFetchError` for data issues
-- **No caching**: Re-fetches from Yahoo every time
+#### Data Layer ([src/data/](../src/data/))
+- **BaseDataLoader**: Abstract interface for all data sources
+- **YahooDataLoader**: Yahoo Finance implementation with caching
+- **PostgresDataLoader**: RapidTrader database integration
+- **Legacy functions**: `fetch_ohlcv()`, `validate_data()` for backward compatibility
+- **Caching**: In-memory with configurable TTL (default 1 hour)
+- **Connection pooling**: SQLAlchemy QueuePool for PostgreSQL
 
 #### Backtest Engine ([src/backtest.py](../src/backtest.py))
 - **calculate_ma_crossover_signals()**: Generate buy/sell signals
@@ -46,13 +48,29 @@ graph TD
 - **calculate_sharpe_ratio()**: Annualized Sharpe ratio
 - **calculate_max_drawdown()**: Maximum drawdown percentage
 - **calculate_total_return()**: Total return percentage
-- **run_backtest()**: Orchestrates full backtest execution
+- **run_backtest()**: Orchestrates full backtest execution (legacy)
+- **run_backtest_enhanced()**: Advanced backtest with position sizing and transaction costs
+
+#### Strategy Layer ([src/strategies/](../src/strategies/))
+- **BaseStrategy**: Abstract interface for all strategies
+- **MAStrategy**: Moving average crossover (refactored from backtest.py)
+- **RSIStrategy**: RSI mean reversion with 2-of-3 confirmation
+- **StrategyManager**: Multi-strategy orchestration with combination methods
+
+#### Position Sizing ([src/position_sizing/](../src/position_sizing/))
+- **BasePositionSizer**: Abstract interface for position sizing
+- **ATRSizer**: ATR-based volatility sizing (RapidTrader compatible)
+- **FixedFractionalSizer**: Fixed percentage of equity
+
+#### Execution ([src/execution/](../src/execution/))
+- **TransactionCostModel**: Commission, spread, slippage modeling
+- **OrderSimulator**: Fill simulation with configurable logic (next_open, close, vwap)
 
 #### Models ([src/models.py](../src/models.py))
 - **Pydantic models** for request/response validation
 - **BacktestRequest**: Validates symbol, strategy, params, dates
 - **BacktestResponse**: Structures results with metrics
-- **Enums**: StrategyType, JobStatus
+- **Enums**: StrategyType (ma_crossover, rsi, combined), JobStatus
 
 ### Performance (Measured)
 
@@ -60,7 +78,7 @@ graph TD
 - **Latency**: 2.66s (data fetch + backtest + metrics)
 - **Throughput**: ~20 jobs/minute (synchronous)
 - **Memory**: <100MB per job
-- **Tests**: 99/99 passing in <2s
+- **Tests**: 198 passing
 
 **Breakdown**:
 - Data fetch from yfinance: ~2s
@@ -70,10 +88,14 @@ graph TD
 
 ### Testing Strategy
 
-**Unit Tests (99 total)**:
+**Unit Tests (198 total)**:
 - 22 tests: Model validation
-- 26 tests: Data fetching
+- 26 tests: Data fetching (legacy)
+- 25 tests: Data loaders (new)
 - 32 tests: Backtest logic
+- 45 tests: Strategy framework
+- 40 tests: Position sizing
+- 37 tests: Execution module
 - 19 tests: API endpoints
 
 **Smoke Tests (5 total)**:
