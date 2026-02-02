@@ -1,6 +1,6 @@
 # Backgrid - Backtesting Engine
 
-**Status**: **Phase 1 - MVP COMPLETE**
+**Status**: **Phase 2 - Week 1 COMPLETE** (Strategy Framework)
 
 **Goal**: Build a real backtesting platform from scratch, evolving from monolith to distributed system
 
@@ -29,9 +29,15 @@ Open browser to http://localhost:8000
 ### API Usage (Alternative)
 
 ```bash
+# MA Crossover Strategy
 curl -X POST http://localhost:8000/api/v1/jobs \
   -H "Content-Type: application/json" \
   -d '{"symbol":"AAPL","strategy":"ma_crossover","params":{"fast":10,"slow":30},"start":"2023-01-01","end":"2023-12-31"}'
+
+# RSI Strategy
+curl -X POST http://localhost:8000/api/v1/jobs \
+  -H "Content-Type: application/json" \
+  -d '{"symbol":"AAPL","strategy":"rsi","params":{"rsi_period":14,"oversold_threshold":30,"overbought_threshold":55},"start":"2023-01-01","end":"2023-12-31"}'
 ```
 
 **Example Response:**
@@ -63,19 +69,23 @@ graph TD
 ### Features Implemented
 - **Simple HTML UI** (single file, zero dependencies, <30 lines)
 - **3 REST API endpoints** (health, submit job, get job)
-- **MA Crossover strategy** with configurable periods
+- **Multiple trading strategies**:
+  - MA Crossover with configurable periods
+  - RSI mean reversion with 2-of-3 confirmation logic
+  - Multi-strategy combination (OR, AND, PRIORITY, WEIGHTED)
 - **Real market data** from Yahoo Finance
 - **Performance metrics**: Sharpe ratio, max drawdown, total return
 - **Full equity curves** for visualization
 - **Comprehensive error handling** and validation
-- **99 passing unit tests** (models, data, backtest, API)
+- **151 passing unit tests** (models, data, backtest, API, strategies)
 - **Automated smoke tests** for end-to-end verification
 
 ### Performance (Measured)
 - **Latency**: 2-3 seconds per backtest
 - **Throughput**: ~20 jobs/minute (synchronous)
 - **Data fetched**: 250 trading days in <3s
-- **Test coverage**: 99 tests across all components
+- **Test coverage**: 151 tests across all components (93% coverage on strategy framework)
+- **Signal calculation**: <10ms for 252 trading days
 
 ### Tech Stack
 - **FastAPI** - Modern async web framework
@@ -91,7 +101,7 @@ graph TD
 ### Run All Unit Tests
 ```bash
 pytest tests/ -v
-# 99 tests, ~2 seconds
+# 151 tests, ~2 seconds
 ```
 
 ### Run Smoke Tests
@@ -115,16 +125,16 @@ open http://localhost:8000/docs
 
 ---
 
-## Known Limitations (Phase 1)
+## Known Limitations (Current Phase)
 
 - **Synchronous execution** - Jobs block the API (no async workers yet)
 - **In-memory storage** - Results lost when server restarts
-- **Single strategy** - Only MA crossover implemented
 - **No data caching** - Re-fetches from Yahoo Finance every time
 - **No authentication** - Open API (single-user mode)
 - **Basic UI** - Simple HTML form (no charts or advanced visualization)
+- **Limited strategies** - MA crossover and RSI implemented, more strategies planned
 
-These are **intentional** - Phase 1 proves the core logic works. Future phases will address them based on measured need.
+These are **intentional** - Each phase adds complexity based on measured need.
 
 ---
 
@@ -137,12 +147,18 @@ backgrid/
 │   ├── backtest.py     # Core backtesting engine
 │   ├── data.py         # Market data fetcher
 │   ├── models.py       # Pydantic request/response models
-│   └── ui.py           # Simple HTML UI (20 lines)
+│   ├── ui.py           # Simple HTML UI (20 lines)
+│   └── strategies/     # Pluggable strategy framework
+│       ├── base.py           # Abstract strategy interface
+│       ├── ma_strategy.py    # Moving average crossover
+│       ├── rsi_strategy.py   # RSI mean reversion
+│       └── strategy_manager.py  # Multi-strategy orchestration
 ├── tests/
 │   ├── test_api.py     # API endpoint tests (19 tests)
 │   ├── test_backtest.py # Backtest logic tests (32 tests)
 │   ├── test_data.py    # Data fetcher tests (26 tests)
-│   └── test_models.py  # Model validation tests (22 tests)
+│   ├── test_models.py  # Model validation tests (22 tests)
+│   └── test_strategies.py  # Strategy framework tests (52 tests)
 ├── scripts/
 │   └── smoke_test.py   # Automated smoke tests
 ├── docs/               # Design docs and architecture

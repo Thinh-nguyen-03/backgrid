@@ -1,4 +1,4 @@
-# API Specification (Phase 1 - MVP)
+# API Specification (Phase 2 - Week 1)
 
 **Base URL**: `http://localhost:8000`
 **Auth**: None (Phase 3)
@@ -10,16 +10,79 @@
 
 Submit a backtest job (synchronous, returns result immediately).
 
-### Request
+### Supported Strategies
+
+#### 1. MA Crossover Strategy
 ```json
 {
   "symbol": "AAPL",
   "strategy": "ma_crossover",
-  "params": {"fast": 10, "slow": 30},
+  "params": {
+    "fast": 10,
+    "slow": 30
+  },
   "start": "2020-01-01",
   "end": "2023-12-31"
 }
 ```
+
+**Parameters:**
+- `fast`: Fast moving average period (integer, min 2)
+- `slow`: Slow moving average period (integer, min 2, must be > fast)
+
+**Backward Compatibility:** Also accepts `fast_period` and `slow_period` parameter names.
+
+#### 2. RSI Strategy
+```json
+{
+  "symbol": "AAPL",
+  "strategy": "rsi",
+  "params": {
+    "rsi_period": 14,
+    "oversold_threshold": 30,
+    "overbought_threshold": 55,
+    "confirmation_window": 3,
+    "min_confirmation_count": 2
+  },
+  "start": "2020-01-01",
+  "end": "2023-12-31"
+}
+```
+
+**Parameters:**
+- `rsi_period`: RSI calculation period (integer, min 2, default 14)
+- `oversold_threshold`: Buy signal threshold (integer, 0-100, default 30)
+- `overbought_threshold`: Sell signal threshold (integer, 0-100, default 55)
+- `confirmation_window`: Lookback window for confirmation (integer, min 1, default 3)
+- `min_confirmation_count`: Required confirmations (integer, min 1, default 2)
+
+**Note:** Uses Wilder's smoothing method (EWM with alpha=1/period) for RSI calculation.
+
+#### 3. Combined Strategy
+```json
+{
+  "symbol": "AAPL",
+  "strategy": "combined",
+  "params": {
+    "strategies": ["ma_crossover", "rsi"],
+    "method": "priority",
+    "ma_params": {"fast": 10, "slow": 30},
+    "rsi_params": {"rsi_period": 14, "oversold_threshold": 30}
+  },
+  "start": "2020-01-01",
+  "end": "2023-12-31"
+}
+```
+
+**Parameters:**
+- `strategies`: List of strategy names to combine (required)
+- `method`: Combination method (default "priority")
+  - `"or"`: Any BUY triggers buy, any SELL triggers sell
+  - `"and"`: All strategies must agree for signal
+  - `"priority"`: SELL > BUY > HOLD precedence
+  - `"weighted"`: Weighted voting based on strategy weights
+- `<strategy_name>_params`: Parameters for each strategy
+- `weights` (optional): Dict mapping strategy names to weights for weighted combination
 
 ### Response (200 OK)
 ```json
