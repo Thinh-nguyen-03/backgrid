@@ -102,6 +102,82 @@ Test: AAPL 2023 (250 trading days)
 
 ---
 
+---
+
+## Phase 2 - Week 1: Strategy Framework (2026-02-01)
+
+### Decision: Implement Pluggable Strategy Architecture
+
+**Date**: 2026-02-01
+
+**Problem**: Phase 1 MVP only supports MA crossover strategy hardcoded in backtest.py. RapidTrader integration requires:
+- RSI mean reversion strategy
+- Multi-strategy combinations
+- Extensible architecture for future strategies
+
+**Approach**:
+- Created abstract BaseStrategy class defining signal interface
+- Implemented RSI strategy with 2-of-3 confirmation logic
+- Refactored MA strategy to use new interface
+- Built StrategyManager for multi-strategy orchestration
+
+**What Was Built**:
+
+| File | Purpose | Lines |
+|------|---------|-------|
+| src/strategies/base.py | Abstract strategy interface, Signal enum | ~90 |
+| src/strategies/rsi_strategy.py | RSI with Wilder's smoothing, confirmation | ~130 |
+| src/strategies/ma_strategy.py | Refactored MA crossover | ~95 |
+| src/strategies/strategy_manager.py | Multi-strategy combination | ~220 |
+| tests/test_strategies.py | Comprehensive unit tests | ~450 |
+
+**Key Design Decisions**:
+
+1. **Signal Enum over Numeric**: Using Signal.BUY/SELL/HOLD instead of 1/0/-1 improves readability and type safety
+
+2. **Wilder's Smoothing for RSI**: Matches TA-Lib reference using exponential weighted mean with alpha=1/period
+
+3. **Confirmation Logic**: RSI requires min_confirmation_count signals within confirmation_window bars before triggering
+
+4. **Combination Methods**: Strategy manager supports OR, AND, PRIORITY, WEIGHTED signal combination
+
+5. **Backward Compatibility**: MA strategy accepts both old params (fast/slow) and new (fast_period/slow_period)
+
+**RapidTrader Parameters Supported**:
+```python
+RSI_DEFAULTS = {
+    "rsi_period": 14,           # RT_RSI_PERIOD
+    "oversold_threshold": 30,   # Buy signal
+    "overbought_threshold": 55, # Sell signal (RT uses 55, not 70)
+    "confirmation_window": 3,   # RT_CONFIRM_WINDOW
+    "min_confirmation_count": 2 # RT_CONFIRM_MIN_COUNT
+}
+```
+
+**Test Coverage**:
+- 45+ new tests for strategy framework
+- Tests for each combination method
+- Edge cases: insufficient data, invalid params, empty managers
+
+**Performance Targets Met**:
+- Signal calculation: < 10ms for 252 trading days
+- Memory: Negligible overhead from strategy objects
+
+**What Was NOT Implemented (Intentionally Deferred)**:
+- Position sizing (Week 3)
+- Transaction costs (Week 3)
+- Market regime filter (Week 4)
+- Stop loss management (Week 4)
+
+**Success Criteria**:
+- [x] RSI calculation matches Wilder's smoothing method
+- [x] 2-of-3 confirmation logic working
+- [x] Multi-strategy combination methods working
+- [x] All unit tests passing
+- [x] Backward compatible with Phase 1 API
+
+---
+
 ## Template for Future Decisions
 
 Every major technology addition must use this template:
