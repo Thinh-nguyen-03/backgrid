@@ -46,7 +46,7 @@ def minimal_ohlcv_data():
 class TestFetchOHLCV:
     """Test fetch_ohlcv function"""
 
-    @patch('src.data.yf.Ticker')
+    @patch('src.data.legacy.yf.Ticker')
     def test_fetch_ohlcv_success(self, mock_ticker, sample_ohlcv_data):
         """Test successful data fetch"""
         # Mock the yfinance Ticker
@@ -63,7 +63,7 @@ class TestFetchOHLCV:
         assert all(col in result.columns for col in ['Open', 'High', 'Low', 'Close', 'Volume'])
         mock_instance.history.assert_called_once_with(start='2020-01-01', end='2020-01-10', auto_adjust=False)
 
-    @patch('src.data.yf.Ticker')
+    @patch('src.data.legacy.yf.Ticker')
     def test_fetch_ohlcv_without_end_date(self, mock_ticker, sample_ohlcv_data):
         """Test fetch without specifying end date"""
         mock_instance = Mock()
@@ -101,7 +101,7 @@ class TestFetchOHLCV:
             fetch_ohlcv('AAPL', '2020-01-01', '2020-01-01')
         assert "must be after start date" in str(exc_info.value)
 
-    @patch('src.data.yf.Ticker')
+    @patch('src.data.legacy.yf.Ticker')
     def test_fetch_ohlcv_empty_data(self, mock_ticker):
         """Test that empty data raises DataFetchError"""
         mock_instance = Mock()
@@ -112,7 +112,7 @@ class TestFetchOHLCV:
             fetch_ohlcv('INVALID', '2020-01-01', '2020-01-10')
         assert "No data returned" in str(exc_info.value)
 
-    @patch('src.data.yf.Ticker')
+    @patch('src.data.legacy.yf.Ticker')
     def test_fetch_ohlcv_insufficient_data(self, mock_ticker):
         """Test that insufficient data (1 row) raises DataFetchError"""
         dates = pd.date_range(start='2020-01-01', periods=1, freq='D')
@@ -134,7 +134,7 @@ class TestFetchOHLCV:
         assert "Insufficient data" in str(exc_info.value)
         assert "only 1 data point" in str(exc_info.value)
 
-    @patch('src.data.yf.Ticker')
+    @patch('src.data.legacy.yf.Ticker')
     def test_fetch_ohlcv_missing_columns(self, mock_ticker):
         """Test that missing required columns raises DataFetchError"""
         dates = pd.date_range(start='2020-01-01', periods=5, freq='D')
@@ -153,7 +153,7 @@ class TestFetchOHLCV:
             fetch_ohlcv('AAPL', '2020-01-01', '2020-01-10')
         assert "Missing required columns" in str(exc_info.value)
 
-    @patch('src.data.yf.Ticker')
+    @patch('src.data.legacy.yf.Ticker')
     def test_fetch_ohlcv_nan_in_close(self, mock_ticker):
         """Test that NaN values in Close column raises DataFetchError"""
         dates = pd.date_range(start='2020-01-01', periods=5, freq='D')
@@ -174,7 +174,7 @@ class TestFetchOHLCV:
             fetch_ohlcv('AAPL', '2020-01-01', '2020-01-10')
         assert "missing Close price" in str(exc_info.value)
 
-    @patch('src.data.yf.Ticker')
+    @patch('src.data.legacy.yf.Ticker')
     def test_fetch_ohlcv_network_error(self, mock_ticker):
         """Test that network errors are handled gracefully"""
         mock_instance = Mock()
