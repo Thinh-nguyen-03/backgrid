@@ -3,7 +3,7 @@
 from fastapi import FastAPI, HTTPException
 from fastapi.responses import JSONResponse
 from contextlib import asynccontextmanager
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Dict
 import logging
 
@@ -64,7 +64,7 @@ async def health_check():
     return HealthResponse(
         status="ok",
         phase=1,
-        timestamp=datetime.utcnow()
+        timestamp=datetime.now(timezone.utc)
     )
 
 @app.post("/api/v1/jobs", response_model=BacktestResponse)
