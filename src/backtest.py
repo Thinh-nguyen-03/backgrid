@@ -1,9 +1,14 @@
-"""Core backtesting logic (Phase 1)"""
+"""Core backtesting logic (Phase 1 + Phase 2 Strategy Framework)"""
 
+import logging
 import pandas as pd
 import numpy as np
 from typing import Dict, Any, List, Optional
-from datetime import datetime
+from datetime import datetime, timezone
+
+from .strategies import MAStrategy, RSIStrategy, StrategyManager, Signal, CombinationMethod
+
+logger = logging.getLogger(__name__)
 
 class BacktestResult:
     """Container for backtest results"""
@@ -24,7 +29,7 @@ class BacktestResult:
         self.total_return = total_return
         self.equity_curve = equity_curve
         self.runtime_seconds = runtime_seconds
-        self.created_at = created_at or datetime.utcnow()
+        self.created_at = created_at or datetime.now(timezone.utc)
 
     def to_dict(self) -> Dict[str, Any]:
         """Convert result to dictionary"""
@@ -197,6 +202,20 @@ def calculate_total_return(equity_curve: pd.Series) -> float:
 
     return float(total_return)
 
+def _signals_to_positions(signals: pd.Series) -> pd.Series:
+    """Convert Signal enum series to numeric position series.
+
+    Args:
+        signals: Series with Signal enum values
+
+    Returns:
+        Series with 1 (long) or 0 (flat)
+    """
+    positions = pd.Series(0, index=signals.index)
+    positions[signals == Signal.BUY] = 1
+    return positions
+
+
 def run_backtest(
     df: pd.DataFrame,
     strategy: str,
@@ -208,8 +227,8 @@ def run_backtest(
 
     Args:
         df: OHLCV DataFrame
-        strategy: Strategy name (currently only "ma_crossover")
-        params: Strategy parameters (e.g., {"fast": 10, "slow": 30})
+        strategy: Strategy name ("ma_crossover", "rsi", or "combined")
+        params: Strategy parameters
         initial_capital: Starting capital
 
     Returns:
@@ -221,30 +240,63 @@ def run_backtest(
     import time
     start_time = time.time()
 
-    # Validate strategy
-    if strategy != "ma_crossover":
-        raise ValueError(f"Unknown strategy: {strategy}. Only 'ma_crossover' is supported in Phase 1")
+    supported_strategies = ["ma_crossover", "rsi", "combined"]
+    if strategy not in supported_strategies:
+        raise ValueError(
+            f"Unknown strategy: {strategy}. "
+            f"Supported strategies: {supported_strategies}"
+        )
 
-    # Extract parameters
-    fast = params.get("fast", 10)
-    slow = params.get("slow", 30)
+    if strategy == "ma_crossover":
+        strat = MAStrategy(params)
+        signals = strat.calculate_signals(df)
+        positions = _signals_to_positions(signals)
 
-    # Generate signals
-    signals = calculate_ma_crossover_signals(df, fast, slow)
+    elif strategy == "rsi":
+        strat = RSIStrategy(params)
+        signals = strat.calculate_signals(df)
+        positions = _signals_to_positions(signals)
 
-    # Calculate equity curve
-    equity_curve = calculate_returns(df, signals, initial_capital)
+    elif strategy == "combined":
+        manager = StrategyManager(method=CombinationMethod.PRIORITY)
 
-    # Calculate metrics
+        ma_params = {
+            k: v for k, v in params.items()
+            if k in ("fast", "slow", "fast_period", "slow_period")
+        }
+        if ma_params:
+            manager.add_strategy("ma", MAStrategy(ma_params))
+
+        rsi_params = {
+            k: v for k, v in params.items()
+            if k in ("rsi_period", "oversold_threshold", "overbought_threshold",
+                     "confirmation_window", "min_confirmation_count")
+        }
+        if rsi_params or not ma_params:
+            manager.add_strategy("rsi", RSIStrategy(rsi_params if rsi_params else None))
+
+        if not manager.strategies:
+            manager.add_strategy("ma", MAStrategy())
+            manager.add_strategy("rsi", RSIStrategy())
+
+        signals = manager.calculate_signals(df)
+        positions = _signals_to_positions(signals)
+
+    equity_curve = calculate_returns(df, positions, initial_capital)
+
     sharpe = calculate_sharpe_ratio(equity_curve)
     max_dd = calculate_max_drawdown(equity_curve)
     total_ret = calculate_total_return(equity_curve)
 
-    # Generate job ID
-    timestamp = datetime.utcnow().strftime("%Y%m%d-%H%M%S")
+    timestamp = datetime.now(timezone.utc).strftime("%Y%m%d-%H%M%S")
     job_id = f"manual-{timestamp}"
 
     runtime = time.time() - start_time
+
+    logger.info(
+        f"Backtest completed: strategy={strategy}, "
+        f"sharpe={sharpe:.4f}, runtime={runtime:.2f}s"
+    )
 
     return {
         "job_id": job_id,
@@ -254,7 +306,7 @@ def run_backtest(
         "total_return": round(total_ret, 4),
         "equity_curve": equity_curve.tolist(),
         "runtime_seconds": round(runtime, 2),
-        "created_at": datetime.utcnow()
+        "created_at": datetime.now(timezone.utc)
     }
 
 def generate_job_id(prefix: str = "manual") -> str:
@@ -267,5 +319,5 @@ def generate_job_id(prefix: str = "manual") -> str:
     Returns:
         Job ID in format: prefix-YYYYMMDD-HHMMSS
     """
-    timestamp = datetime.utcnow().strftime("%Y%m%d-%H%M%S")
+    timestamp = datetime.now(timezone.utc).strftime("%Y%m%d-%H%M%S")
     return f"{prefix}-{timestamp}"

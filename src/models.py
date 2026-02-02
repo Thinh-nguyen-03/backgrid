@@ -1,6 +1,6 @@
 """Pydantic models for API request/response validation (Phase 1)"""
 
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Optional, Dict, Any, List
 from pydantic import BaseModel, Field, field_validator
 from enum import Enum
@@ -8,6 +8,8 @@ from enum import Enum
 class StrategyType(str, Enum):
     """Available trading strategies"""
     MA_CROSSOVER = "ma_crossover"
+    RSI = "rsi"
+    COMBINED = "combined"
 
 class JobStatus(str, Enum):
     """Job execution status"""
@@ -70,6 +72,26 @@ class BacktestRequest(BaseModel):
             if fast >= slow:
                 raise ValueError("fast period must be less than slow period")
 
+        # Validate RSI params
+        if 'rsi_period' in v:
+            rsi_period = v['rsi_period']
+            if not isinstance(rsi_period, int) or rsi_period < 2:
+                raise ValueError("rsi_period must be an integer >= 2")
+
+        if 'oversold_threshold' in v:
+            oversold = v['oversold_threshold']
+            if not isinstance(oversold, (int, float)) or not (0 <= oversold <= 100):
+                raise ValueError("oversold_threshold must be between 0 and 100")
+
+        if 'overbought_threshold' in v:
+            overbought = v['overbought_threshold']
+            if not isinstance(overbought, (int, float)) or not (0 <= overbought <= 100):
+                raise ValueError("overbought_threshold must be between 0 and 100")
+
+        if 'oversold_threshold' in v and 'overbought_threshold' in v:
+            if v['oversold_threshold'] >= v['overbought_threshold']:
+                raise ValueError("oversold_threshold must be less than overbought_threshold")
+
         return v
 
     model_config = {
@@ -119,7 +141,7 @@ class HealthResponse(BaseModel):
     """Health check response"""
     status: str = Field(default="ok")
     phase: int = Field(default=1, description="Current implementation phase")
-    timestamp: datetime = Field(default_factory=datetime.utcnow)
+    timestamp: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
 class ErrorResponse(BaseModel):
     """Error response model"""
