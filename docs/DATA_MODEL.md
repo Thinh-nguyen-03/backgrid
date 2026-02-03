@@ -140,6 +140,75 @@ class PositionSizeResult:
 
 ---
 
+## Risk Management Data Structures (Phase 2 - Week 4)
+
+### MarketRegime
+
+Returned by `MarketRegimeFilter.get_regime()`.
+
+```python
+@dataclass
+class MarketRegime:
+    state: RegimeState          # BULL | BEAR | NEUTRAL
+    sma_value: float            # Current SMA value
+    price: float                # Latest close price
+    as_of: date                 # Date of the assessment
+    regime_duration_days: int   # Trading days in current regime
+```
+
+`RegimeState` is an enum: `BULL`, `BEAR`, `NEUTRAL`.
+
+### StopLossResult
+
+Returned by `StopLossManager.check_stop()`.
+
+```python
+@dataclass
+class StopLossResult:
+    symbol: str
+    triggered: bool             # True if stop was breached
+    stop_price: float           # Current stop level
+    current_price: float        # Price that was checked
+    stop_type: StopType         # FIXED | TRAILING
+    cooldown_until: Optional[date]  # Date cooldown expires (if triggered)
+```
+
+`StopType` is an enum: `FIXED`, `TRAILING`.
+
+### SectorExposure
+
+Returned by `SectorLimitManager.get_sector_exposure()`.
+
+```python
+@dataclass
+class SectorExposure:
+    sector: str
+    total_value: float          # Sum of market values in this sector
+    exposure_pct: float         # Fraction of total portfolio
+    max_allowed_pct: float      # Configured limit (default 0.30)
+    headroom: float             # Remaining capacity as a fraction
+    position_count: int         # Number of open positions in sector
+```
+
+### HeatReport
+
+Returned by `PortfolioHeatTracker.get_heat_report()`.
+
+```python
+@dataclass
+class HeatReport:
+    total_heat: float           # Aggregate dollar risk across all positions
+    heat_pct: float             # total_heat / portfolio_value
+    max_heat: float             # Maximum allowed heat (max_heat_pct * portfolio_value)
+    status: HeatStatus          # COOL | WARM | HOT | CRITICAL
+    position_count: int         # Number of tracked positions
+    max_positions: int          # Configured position limit
+```
+
+`HeatStatus` is an enum: `COOL` (<50 % of max), `WARM` (50-75 %), `HOT` (75-100 %), `CRITICAL` (>100 %).
+
+---
+
 ## Caching
 
 ### In-Memory Cache

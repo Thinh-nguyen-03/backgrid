@@ -1,6 +1,6 @@
 # Deployment Guide
 
-**Current Phase**: 1 (Local only)
+**Current Phase**: 2 (Local, Week 4 complete)
 
 **Target**: Fly.io (Phase 2)
 

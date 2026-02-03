@@ -25,6 +25,7 @@ pytest tests/test_strategies.py -v
 pytest tests/test_data_loaders.py -v
 pytest tests/test_position_sizing.py -v
 pytest tests/test_execution.py -v
+pytest tests/test_risk.py -v
 
 # With coverage
 pytest tests/ --cov=src --cov-report=html
@@ -132,6 +133,12 @@ CREATE TABLE symbols (
 | RT_DB_USER | - | Database user |
 | RT_DB_PASSWORD | - | Database password |
 | CACHE_TTL | 3600 | Data cache TTL in seconds |
+| RT_MARKET_FILTER_ENABLE | true | Enable/disable market regime filter |
+| RT_MARKET_FILTER_SMA | 200 | SMA period for bull/bear detection |
+| RT_MARKET_FILTER_SYMBOL | SPY | Reference symbol for regime filter |
+| RT_ATR_STOP_K | 3.0 | ATR multiplier for stop-loss placement |
+| RT_COOLDOWN_DAYS_ON_STOP | 1 | Trading days locked out after stop trigger |
+| RT_MAX_EXPOSURE_PER_SECTOR | 0.30 | Maximum portfolio exposure per sector |
 
 ## Migrations
 

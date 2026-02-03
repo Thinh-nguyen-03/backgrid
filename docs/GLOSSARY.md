@@ -60,6 +60,16 @@
 - **Hypertable** — TimescaleDB partitioned table for time-series data.
 - **OHLCV** — Open, High, Low, Close, Volume - standard price bar format.
 
+## Risk Management
+
+- **Market Regime** — Macroeconomic state (bull / bear / neutral) derived from price vs. a long-period SMA (e.g. SPY 200-SMA).
+- **Bull Gate** — Boolean flag that is True when the market regime allows new long entries. Mirrors RapidTrader's `bull_gate` column in `market_state`.
+- **Stop Loss** — Pre-set price level at which a position is closed to limit further losses. Backgrid places stops at `entry_price - (ATR * multiplier)`.
+- **Cooldown Period** — Number of trading days after a stop-loss trigger during which no new position may be opened in the same symbol. Prevents re-entering a trade immediately after a forced exit.
+- **Portfolio Heat** — Aggregate capital at risk across all open positions, defined as the sum of `(entry_price - stop_price) * shares` per position. Expressed as a fraction of total portfolio value.
+- **Heat Status** — Tiered classification of portfolio heat: COOL (<50 % of max), WARM (50-75 %), HOT (75-100 %), CRITICAL (>100 %).
+- **Sector Limit** — Maximum allowed portfolio exposure to any single sector (default 30 %). Prevents concentration risk across correlated assets.
+
 ## Infrastructure
 
 - **Idempotent** — Safe to retry without duplicate side-effects.

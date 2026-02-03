@@ -1,6 +1,6 @@
 # Backgrid - Backtesting Engine
 
-**Status**: **Phase 2 - Week 1 COMPLETE** (Strategy Framework)
+**Status**: **Phase 2 - Week 4 COMPLETE** (Risk Management)
 
 **Goal**: Build a real backtesting platform from scratch, evolving from monolith to distributed system
 
@@ -73,19 +73,29 @@ graph TD
   - MA Crossover with configurable periods
   - RSI mean reversion with 2-of-3 confirmation logic
   - Multi-strategy combination (OR, AND, PRIORITY, WEIGHTED)
-- **Real market data** from Yahoo Finance
-- **Performance metrics**: Sharpe ratio, max drawdown, total return
-- **Full equity curves** for visualization
+- **Pluggable data loaders**: Yahoo Finance + PostgreSQL (RapidTrader)
+- **ATR-based position sizing** with volatility-adjusted risk
+- **Transaction cost modeling**: commission, spread, slippage
+- **Risk management**:
+  - Market regime filter (SPY 200-SMA bull/bear detection)
+  - ATR-based stop losses with cooldown periods
+  - Sector concentration limits (30% max per sector)
+  - Portfolio heat tracking (aggregate risk exposure)
+- **Real market data** from Yahoo Finance or RapidTrader PostgreSQL
+- **Performance metrics**: Sharpe ratio, max drawdown, total return, win rate
+- **Full equity curves** and trade ledger
 - **Comprehensive error handling** and validation
-- **151 passing unit tests** (models, data, backtest, API, strategies)
+- **256 passing unit tests** across all modules
 - **Automated smoke tests** for end-to-end verification
 
 ### Performance (Measured)
 - **Latency**: 2-3 seconds per backtest
 - **Throughput**: ~20 jobs/minute (synchronous)
 - **Data fetched**: 250 trading days in <3s
-- **Test coverage**: 151 tests across all components (93% coverage on strategy framework)
+- **Test coverage**: 256 tests across all components (>95% on critical paths)
 - **Signal calculation**: <10ms for 252 trading days
+- **ATR calculation**: <5ms for 252 trading days
+- **Position sizing**: <1ms per calculation
 
 ### Tech Stack
 - **FastAPI** - Modern async web framework
@@ -101,7 +111,7 @@ graph TD
 ### Run All Unit Tests
 ```bash
 pytest tests/ -v
-# 151 tests, ~2 seconds
+# 256 tests, ~4 seconds
 ```
 
 ### Run Smoke Tests
@@ -129,10 +139,9 @@ open http://localhost:8000/docs
 
 - **Synchronous execution** - Jobs block the API (no async workers yet)
 - **In-memory storage** - Results lost when server restarts
-- **No data caching** - Re-fetches from Yahoo Finance every time
 - **No authentication** - Open API (single-user mode)
 - **Basic UI** - Simple HTML form (no charts or advanced visualization)
-- **Limited strategies** - MA crossover and RSI implemented, more strategies planned
+- **Single-symbol backtests** - Portfolio aggregation across 500+ symbols planned for Week 5
 
 These are **intentional** - Each phase adds complexity based on measured need.
 
@@ -143,25 +152,45 @@ These are **intentional** - Each phase adds complexity based on measured need.
 ```
 backgrid/
 ├── src/
-│   ├── api.py          # FastAPI endpoints
-│   ├── backtest.py     # Core backtesting engine
-│   ├── data.py         # Market data fetcher
-│   ├── models.py       # Pydantic request/response models
-│   ├── ui.py           # Simple HTML UI (20 lines)
-│   └── strategies/     # Pluggable strategy framework
-│       ├── base.py           # Abstract strategy interface
-│       ├── ma_strategy.py    # Moving average crossover
-│       ├── rsi_strategy.py   # RSI mean reversion
-│       └── strategy_manager.py  # Multi-strategy orchestration
+│   ├── api.py              # FastAPI endpoints
+│   ├── backtest.py         # Core backtesting engine (legacy + enhanced)
+│   ├── models.py           # Pydantic request/response models
+│   ├── ui.py               # Simple HTML UI
+│   ├── strategies/         # Pluggable strategy framework
+│   │   ├── base.py               # Abstract strategy interface
+│   │   ├── ma_strategy.py        # Moving average crossover
+│   │   ├── rsi_strategy.py       # RSI mean reversion
+│   │   └── strategy_manager.py   # Multi-strategy orchestration
+│   ├── data/               # Pluggable data loaders
+│   │   ├── base_loader.py        # Abstract loader + caching
+│   │   ├── yahoo_loader.py       # Yahoo Finance
+│   │   ├── postgres_loader.py    # RapidTrader PostgreSQL
+│   │   └── legacy.py             # Backward-compat fetch_ohlcv
+│   ├── position_sizing/    # Volatility-adjusted sizing
+│   │   ├── base_sizer.py         # Abstract interface
+│   │   ├── atr_sizer.py          # ATR-based sizing
+│   │   └── fixed_sizer.py        # Fixed fractional
+│   ├── execution/          # Order fill simulation
+│   │   ├── transaction_costs.py  # Commission/spread/slippage
+│   │   └── order_simulator.py    # Fill logic
+│   └── risk/               # Portfolio risk controls
+│       ├── market_regime.py      # SPY 200-SMA bull/bear filter
+│       ├── stop_loss.py          # ATR stops + cooldown
+│       ├── sector_limits.py      # Sector concentration caps
+│       └── portfolio_heat.py     # Aggregate risk tracking
 ├── tests/
-│   ├── test_api.py     # API endpoint tests (19 tests)
-│   ├── test_backtest.py # Backtest logic tests (32 tests)
-│   ├── test_data.py    # Data fetcher tests (26 tests)
-│   ├── test_models.py  # Model validation tests (22 tests)
-│   └── test_strategies.py  # Strategy framework tests (52 tests)
+│   ├── test_api.py             # API endpoint tests (19)
+│   ├── test_backtest.py        # Backtest logic tests (32)
+│   ├── test_data.py            # Legacy data tests (26)
+│   ├── test_data_loaders.py    # Data loader tests (25)
+│   ├── test_models.py          # Model validation tests (22)
+│   ├── test_strategies.py      # Strategy framework tests (45)
+│   ├── test_position_sizing.py # Position sizing tests (40)
+│   ├── test_execution.py       # Execution tests (37)
+│   └── test_risk.py            # Risk management tests (58)
 ├── scripts/
-│   └── smoke_test.py   # Automated smoke tests
-├── docs/               # Design docs and architecture
+│   └── smoke_test.py       # Automated smoke tests
+├── docs/                   # Design docs and architecture
 └── requirements.txt
 ```
 
@@ -203,12 +232,17 @@ GET /api/v1/jobs/{job_id}
 
 ---
 
-## Future Phases (Planned)
+## What's Next
 
-### Phase 2: Async Workers
-**When**: When synchronous execution becomes a bottleneck
-**What**: Celery + Redis for async job processing
-**Why**: Support multiple concurrent users
+### Phase 2 Week 5: Portfolio Aggregation
+- Portfolio state tracker across multiple symbols
+- Trade ledger with strategy attribution
+- Celery workers for parallel 500+ symbol backtests
+
+### Phase 2 Week 6-7: API Extensions + Validation
+- Portfolio backtest endpoints
+- Alembic migrations for result persistence
+- Validation against RapidTrader historical performance
 
 ### Phase 3: Performance & Scale
 **When**: After profiling shows specific bottlenecks

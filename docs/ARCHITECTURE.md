@@ -66,6 +66,12 @@ graph TD
 - **TransactionCostModel**: Commission, spread, slippage modeling
 - **OrderSimulator**: Fill simulation with configurable logic (next_open, close, vwap)
 
+#### Risk Management ([src/risk/](../src/risk/))
+- **MarketRegimeFilter**: SPY 200-SMA bull/bear detection; blocks new long entries in bear markets
+- **StopLossManager**: ATR-based stop prices with configurable cooldown after trigger
+- **SectorLimitManager**: Enforces max exposure per sector (default 30%); supports per-sector overrides
+- **PortfolioHeatTracker**: Tracks aggregate capital at risk; status levels COOL/WARM/HOT/CRITICAL
+
 #### Models ([src/models.py](../src/models.py))
 - **Pydantic models** for request/response validation
 - **BacktestRequest**: Validates symbol, strategy, params, dates
@@ -78,7 +84,7 @@ graph TD
 - **Latency**: 2.66s (data fetch + backtest + metrics)
 - **Throughput**: ~20 jobs/minute (synchronous)
 - **Memory**: <100MB per job
-- **Tests**: 198 passing
+- **Tests**: 256 passing
 
 **Breakdown**:
 - Data fetch from yfinance: ~2s
@@ -88,7 +94,7 @@ graph TD
 
 ### Testing Strategy
 
-**Unit Tests (198 total)**:
+**Unit Tests (256 total)**:
 - 22 tests: Model validation
 - 26 tests: Data fetching (legacy)
 - 25 tests: Data loaders (new)
@@ -96,6 +102,7 @@ graph TD
 - 45 tests: Strategy framework
 - 40 tests: Position sizing
 - 37 tests: Execution module
+- 58 tests: Risk management
 - 19 tests: API endpoints
 
 **Smoke Tests (5 total)**:
@@ -121,11 +128,7 @@ graph TD
    - Impact: Slightly slower for repeated symbols
    - Why acceptable: 2s data fetch is acceptable, no rate limit issues
 
-4. **Single strategy**: Only MA crossover implemented
-   - Impact: Can't test other strategies
-   - Why acceptable: Better to prove one strategy works perfectly
-
-5. **No authentication**: Open API
+4. **No authentication**: Open API
    - Impact: Anyone with access can submit jobs
    - Why acceptable: Single-user development mode
 

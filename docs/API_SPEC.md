@@ -245,6 +245,61 @@ simulator = OrderSimulator(cost_model=costs, fill_at="next_open")
 fill = simulator.execute(order, df, bar_index=10)
 ```
 
+### Risk Management
+
+```python
+from src.risk import (
+    MarketRegimeFilter, StopLossManager,
+    SectorLimitManager, PortfolioHeatTracker
+)
+
+# --- Market Regime Filter ---
+regime_filter = MarketRegimeFilter({
+    "sma_period": 200,        # SPY 200-SMA (default)
+    "buffer_pct": 0.0,        # Dead-band around SMA
+    "confirmation_days": 1    # Days price must stay on one side
+})
+regime = regime_filter.get_regime(spy_df)        # MarketRegime dataclass
+can_enter = regime_filter.allows_entry(spy_df, side="long")  # bool
+
+# --- Stop Loss Manager ---
+stop_mgr = StopLossManager({
+    "atr_multiplier": 3.0,    # Stop distance in ATRs
+    "atr_period": 14,
+    "cooldown_days": 1,       # Days blocked after stop trigger
+    "trailing_enabled": False
+})
+stop_price = stop_mgr.register_position(
+    symbol="AAPL", entry_price=150.0, atr=2.5, df=df
+)
+result = stop_mgr.check_stop("AAPL", current_price=145.0, current_date=date)
+# result.triggered, result.stop_price, result.stop_type
+
+# --- Sector Limit Manager ---
+sector_mgr = SectorLimitManager({
+    "max_sector_exposure": 0.30,   # 30 % cap per sector
+    "warn_threshold_pct": 0.25
+})
+sector_mgr.add_position("AAPL", sector="Technology", shares=100, market_value=15000.0)
+allowed = sector_mgr.allows_entry(
+    symbol="MSFT", sector="Technology",
+    proposed_value=5000.0, total_portfolio=100000.0
+)  # bool
+warnings = sector_mgr.check_compliance()  # List[str]
+
+# --- Portfolio Heat Tracker ---
+heat_tracker = PortfolioHeatTracker({
+    "max_heat_pct": 0.06,     # 6 % of portfolio
+    "max_positions": 20
+})
+risk = heat_tracker.add_position(
+    symbol="AAPL", entry_price=150.0, shares=100, stop_price=142.5
+)  # float — dollar risk added
+report = heat_tracker.get_heat_report(portfolio_value=100000.0)
+# report.total_heat, report.heat_pct, report.status (COOL/WARM/HOT/CRITICAL)
+can_add = heat_tracker.allows_new_risk(proposed_risk=500.0, portfolio_value=100000.0)
+```
+
 ### Enhanced Backtest
 
 ```python
