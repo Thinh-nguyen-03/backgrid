@@ -409,6 +409,231 @@ PORTFOLIO_HEAT = {
 
 ---
 
+## Phase 2 - Week 5: Portfolio Aggregation (2026-02-03)
+
+### Decision: Implement Portfolio State Tracking and Celery Workers
+
+**Date**: 2026-02-03
+
+**Problem**: Phase 2 Week 1-4 implemented individual components (strategies, data loaders, position sizing, risk management) but lacked:
+- Multi-symbol portfolio state tracking
+- Centralized trade ledger for analysis
+- Extended performance metrics (Sortino, Calmar)
+- Parallel backtest execution for 500+ symbols
+
+**Approach**:
+- Created `src/portfolio/` module with three components
+- Implemented Celery worker tasks for parallel execution
+- Extended metrics beyond Sharpe/MaxDD/TotalReturn
+
+**What Was Built**:
+
+| File | Purpose | Lines |
+|------|---------|-------|
+| src/portfolio/__init__.py | Module exports | ~35 |
+| src/portfolio/portfolio.py | PortfolioStateTracker, PositionState, PortfolioSnapshot | ~250 |
+| src/portfolio/trade_ledger.py | TradeLedger, TradeSummary, filtering/aggregation | ~200 |
+| src/portfolio/metrics.py | Sortino, Calmar, annualized return, trade metrics | ~280 |
+| src/worker.py | Celery tasks for parallel backtesting | ~150 |
+| tests/test_portfolio.py | Comprehensive unit tests | ~500 |
+
+**Key Design Decisions**:
+
+1. **PortfolioStateTracker**:
+   - Tracks positions, cash, sector exposures across multiple symbols
+   - Enforces max_positions limit (default 20)
+   - Enforces max_sector_exposure (default 30%)
+   - Maintains realized/unrealized P&L separately
+   - Generates point-in-time snapshots for equity curve
+
+2. **TradeLedger**:
+   - Wraps existing TradeRecord from backtest.py (no duplication)
+   - Supports filtering by symbol, strategy, date range, P&L
+   - Generates summaries by symbol or strategy
+   - Computes profit factor, win rate, average hold days
+
+3. **Extended Metrics**:
+   - Sortino ratio: Penalizes only downside deviation
+   - Calmar ratio: Annualized return / max drawdown
+   - Profit factor: Gross profits / gross losses
+   - Expectancy: (win_rate * avg_win) - ((1 - win_rate) * avg_loss)
+
+4. **Celery Workers**:
+   - `run_single_backtest`: Task with retry logic (max 3 retries)
+   - `run_portfolio_backtest`: Uses Celery group for parallel dispatch
+   - `aggregate_results`: Combines multi-symbol results
+   - Redis broker/backend at localhost:6379/0
+
+**RapidTrader Integration**:
+- Portfolio constraints match RT parameters:
+  - max_sector_exposure: 0.30 (RT_MAX_EXPOSURE_PER_SECTOR)
+  - max_positions: 20 (practical limit for diversified portfolio)
+- Metrics support validation against RapidTrader historical results
+
+**Test Coverage**:
+- 65+ new tests for portfolio module
+- Tests for all dataclasses, tracker operations, ledger filtering
+- Tests for each metric function with edge cases
+- Tests for result aggregation
+
+**What Was NOT Implemented (Intentionally Deferred)**:
+- Database persistence of portfolio results (Week 6)
+- API endpoints for portfolio backtests (Week 6)
+- Correlation-based position limits (future enhancement)
+- Real-time position monitoring (out of scope)
+
+**Success Criteria**:
+- [x] PortfolioStateTracker manages multi-symbol positions
+- [x] TradeLedger records and filters all trades
+- [x] Extended metrics (Sortino, Calmar) implemented
+- [x] Celery workers ready for parallel execution
+- [x] All unit tests passing
+
+---
+
+## Phase 2 - Week 5: Celery Worker Fixes (2026-02-03)
+
+### Decision: Use Threads Pool on Windows for Python 3.13 Compatibility
+
+**Date**: 2026-02-03
+
+**Problem**: Celery workers with the default `prefork` pool failed on Windows with Python 3.13. The error:
+```
+ValueError: not enough values to unpack (expected 3, got 0)
+  File "celery/app/trace.py", line 664, in fast_trace_task
+    tasks, accept, hostname = _loc
+```
+
+The `_loc` thread-local variable was not being initialized properly in child processes when using the spawn method (required on Windows).
+
+**Evidence**:
+- Celery 5.3.4 failed with prefork pool on Python 3.13
+- Upgraded to Celery 5.6.2 - same error persisted
+- Issue is in billiard's process spawning not initializing `_loc`
+
+**Alternatives Considered**:
+1. **Downgrade to Python 3.11/3.12**: Would require user to change their environment
+2. **Use solo pool**: Works but provides no concurrency
+3. **Use threads pool**: Full concurrency using threads instead of processes
+
+**Decision**: Configure Celery to use `threads` pool on Windows via `app.conf.worker_pool = "threads"`. This is applied conditionally based on `sys.platform == "win32"`.
+
+**What Was Changed**:
+
+| File | Change |
+|------|--------|
+| src/worker.py | Added conditional threads pool for Windows |
+| requirements.txt | Updated celery>=5.4.0, psycopg2-binary>=2.9.11, pydantic>=2.5.3 |
+
+**Configuration Added**:
+```python
+if sys.platform == "win32":
+    app.conf.worker_pool = "threads"
+
+app.conf.update(
+    broker_connection_retry_on_startup=True,  # Silence deprecation warning
+)
+```
+
+**Impact**:
+- Health check task executes successfully
+- Workers start with 12 threads (matching CPU cores)
+- Task dispatch and result retrieval work correctly
+
+**Tradeoffs**:
+- Threads pool doesn't provide true process isolation (GIL limits CPU parallelism)
+- For backtesting workloads (I/O bound with yfinance), threads are sufficient
+- On Linux/macOS, prefork pool still used for better CPU parallelism
+
+**Dependency Updates**:
+- `celery>=5.4.0`: Required for Python 3.13 compatibility improvements
+- `psycopg2-binary>=2.9.11`: First version with pre-built wheels for Python 3.13
+- `pydantic>=2.5.3`: Avoids Rust compilation requirement on Python 3.13
+
+---
+
+## Phase 2 - Week 6: API & Database Extensions (2026-02-03)
+
+### Decision: Implement Portfolio API with Synchronous Database Persistence
+
+**Date**: 2026-02-03
+
+**Problem**: Phase 2 Week 5 implemented Celery workers and portfolio module, but lacked:
+- API endpoints for submitting and retrieving portfolio backtests
+- Database persistence for portfolio results
+- Trade ledger query capabilities
+- Multi-strategy backtest API
+
+**Approach**:
+- Created new API router (`src/api_portfolio.py`) for portfolio endpoints
+- Extended SQLAlchemy models for portfolio data persistence
+- Added Alembic migration for new tables
+- Implemented synchronous execution with database writes
+
+**What Was Built**:
+
+| File | Purpose | Lines |
+|------|---------|-------|
+| src/api_portfolio.py | Portfolio API endpoints | ~450 |
+| src/models.py | Extended Pydantic models | ~350 |
+| src/db.py | Extended SQLAlchemy models + helpers | ~300 |
+| migrations/versions/add_portfolio_tables_week6.py | Alembic migration | ~100 |
+| tests/test_api_portfolio.py | Comprehensive unit tests | ~400 |
+
+**Key Design Decisions**:
+
+1. **Synchronous Execution with Database Persistence**:
+   - Portfolio backtests run synchronously for simplicity
+   - Results written to PostgreSQL as they complete
+   - Future: Can switch to async Celery execution for large portfolios
+
+2. **Batch ID Generation**:
+   - Format: `portfolio-{timestamp}-{short_uuid}`
+   - Enables unique identification and retrieval
+   - Includes timestamp for chronological ordering
+
+3. **Trade Ledger Design**:
+   - Linked to portfolio via `batch_id` foreign key
+   - CASCADE delete when portfolio deleted
+   - Indexed on symbol, strategy, entry_date for efficient queries
+
+4. **Multi-Strategy API**:
+   - Reuses existing StrategyManager from Week 1
+   - Supports all combination methods (OR, AND, PRIORITY, WEIGHTED)
+   - Returns combined metrics for strategy ensemble
+
+5. **Symbols API**:
+   - Yahoo source: Returns curated list of popular symbols
+   - PostgreSQL source: Queries RapidTrader symbols table
+   - Graceful fallback if PostgreSQL unavailable
+
+**RapidTrader Integration Points**:
+- PostgreSQL loader can query RapidTrader `bars_daily` table
+- Symbols API connects to `symbols` table for universe
+- Transaction costs match RapidTrader parameters
+
+**Test Coverage**:
+- 30+ new tests for portfolio API
+- Tests for all endpoints, error cases, pagination
+- Database integration tests verify persistence
+
+**What Was NOT Implemented (Intentionally Deferred)**:
+- Async execution via Celery (can be added if needed)
+- Real-time progress updates (WebSocket)
+- Result caching (Redis)
+- Authentication/authorization
+
+**Success Criteria**:
+- [x] POST /api/v1/backtest/portfolio accepts multi-symbol requests
+- [x] Results persisted to PostgreSQL with foreign key relationships
+- [x] GET endpoints return results with per-symbol breakdown
+- [x] Trade ledger supports filtering by symbol/strategy
+- [x] Multi-strategy backtest combines signals correctly
+- [x] Symbols API returns data from Yahoo or PostgreSQL
+- [x] All unit tests passing (30+ tests)
+
+---
+
 ## Template for Future Decisions
 
 Every major technology addition must use this template:
