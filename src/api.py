@@ -1,4 +1,4 @@
-"""FastAPI application (Phase 1 - MVP)"""
+"""FastAPI application (Phase 1 MVP + Week 6 Portfolio Extensions)"""
 
 from fastapi import FastAPI, HTTPException
 from fastapi.responses import JSONResponse
@@ -18,6 +18,8 @@ try:
     from .data import fetch_ohlcv, DataFetchError
     from .backtest import run_backtest, BacktestResult
     from .ui import router as ui_router
+    from .api_portfolio import router as portfolio_router
+    from .api_portfolio import symbols_router
 except ImportError:
     from models import (
         BacktestRequest,
@@ -29,29 +31,34 @@ except ImportError:
     from data import fetch_ohlcv, DataFetchError
     from backtest import run_backtest, BacktestResult
     from ui import router as ui_router
+    from api_portfolio import router as portfolio_router
+    from api_portfolio import symbols_router
 
-# Configure logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-# In-memory storage for Phase 1 (will be replaced with SQLite in next step)
 job_results: Dict[str, dict] = {}
+
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Lifespan context manager for startup/shutdown"""
-    logger.info("Starting Backgrid API (Phase 1 - MVP)")
+    logger.info("Starting Backgrid API (Phase 2 - Week 6)")
     yield
     logger.info("Shutting down Backgrid API")
 
+
 app = FastAPI(
     title="Backgrid API",
-    description="Backtesting engine for trading strategies (Phase 1 - MVP)",
-    version="0.1.0",
+    description="Backtesting engine for trading strategies (Phase 2 - Week 6: Portfolio Extensions)",
+    version="0.2.0",
     lifespan=lifespan
 )
 
 app.include_router(ui_router)
+app.include_router(portfolio_router)
+app.include_router(symbols_router)
+
 
 @app.get("/api/v1/health", response_model=HealthResponse)
 async def health_check():
@@ -63,14 +70,15 @@ async def health_check():
     """
     return HealthResponse(
         status="ok",
-        phase=1,
+        phase=2,
         timestamp=datetime.now(timezone.utc)
     )
+
 
 @app.post("/api/v1/jobs", response_model=BacktestResponse)
 async def submit_job(request: BacktestRequest):
     """
-    Submit a backtest job (synchronous execution in Phase 1).
+    Submit a backtest job (synchronous execution).
 
     Args:
         request: Backtest request parameters
@@ -87,7 +95,6 @@ async def submit_job(request: BacktestRequest):
             f"strategy={request.strategy}, params={request.params}"
         )
 
-        # Fetch market data
         try:
             df = fetch_ohlcv(
                 symbol=request.symbol,
@@ -108,7 +115,6 @@ async def submit_job(request: BacktestRequest):
                 detail=f"Invalid parameters: {str(e)}"
             )
 
-        # Run backtest
         try:
             result = run_backtest(
                 df=df,
@@ -129,10 +135,8 @@ async def submit_job(request: BacktestRequest):
                 detail=f"Internal error during backtest: {str(e)}"
             )
 
-        # Store result in memory (Phase 1)
         job_results[result["job_id"]] = result
 
-        # Return response
         return BacktestResponse(
             job_id=result["job_id"],
             status=JobStatus.COMPLETED,
@@ -152,6 +156,7 @@ async def submit_job(request: BacktestRequest):
             status_code=500,
             detail=f"Internal server error: {str(e)}"
         )
+
 
 @app.get("/api/v1/jobs/{job_id}", response_model=BacktestResponse)
 async def get_job(job_id: str):
@@ -189,6 +194,7 @@ async def get_job(job_id: str):
         created_at=result["created_at"]
     )
 
+
 @app.exception_handler(HTTPException)
 async def http_exception_handler(request, exc: HTTPException):
     """Custom exception handler for HTTP exceptions"""
@@ -196,6 +202,7 @@ async def http_exception_handler(request, exc: HTTPException):
         status_code=exc.status_code,
         content={"error": exc.detail}
     )
+
 
 if __name__ == "__main__":
     import uvicorn
