@@ -17,10 +17,9 @@ from src.db import Base
 # access to the values within the .ini file in use.
 config = context.config
 
-# Set database URL from environment variable
-database_url = os.getenv("DATABASE_URL")
-if database_url:
-    config.set_main_option("sqlalchemy.url", database_url)
+# Set database URL from environment variable (default to SQLite for local dev)
+database_url = os.getenv("DATABASE_URL", "sqlite:///backgrid.db")
+config.set_main_option("sqlalchemy.url", database_url)
 
 # Interpret the config file for Python logging.
 # This line sets up loggers basically.
