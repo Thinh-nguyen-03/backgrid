@@ -1,8 +1,9 @@
-# API Specification (Phase 2 - Week 1)
+# API Specification (Phase 2 Complete)
 
 **Base URL**: `http://localhost:8000`
 **Auth**: None (Phase 3)
 **Rate Limit**: None (Phase 2)
+**Status**: Phase 2 Complete (650 tests passing)
 
 ---
 
@@ -131,20 +132,64 @@ Health check endpoint.
 
 ### Response (200 OK)
 ```json
-{"status": "ok", "phase": 1}
+{"status": "ok", "phase": 2}
 ```
 
 ---
 
-## Phase 2 Changes (Future)
+## Phase 2 Portfolio API (Complete)
 
-- **POST /jobs**: Will return immediately with `job_id` and `"status": "queued"`
-- **Rate limiting**: 60 req/min per IP
-- **Auth**: JWT bearer tokens
+All endpoints implemented and tested (Week 6-7):
+
+### POST /api/v1/backtest/portfolio
+Submit multi-symbol batch backtest.
+
+**Request**:
+```json
+{
+  "symbols": ["AAPL", "MSFT", "GOOGL"],
+  "strategy": "rsi",
+  "params": {},
+  "start": "2023-01-01",
+  "end": "2023-12-31",
+  "enable_transaction_costs": true,
+  "enable_market_regime_filter": true
+}
+```
+
+**Response** (200 OK):
+```json
+{
+  "batch_id": "uuid",
+  "status": "completed",
+  "symbols_submitted": 3,
+  "portfolio_metrics": {
+    "total_return": 0.23,
+    "sharpe_ratio": 1.45,
+    "max_drawdown": -0.12
+  }
+}
+```
+
+### GET /api/v1/backtest/portfolio/{batch_id}
+Retrieve portfolio results.
+
+### GET /api/v1/backtest/portfolio/{batch_id}/trades
+Query trade ledger with filters (symbol, start_date, end_date, side).
+
+### POST /api/v1/backtest/multi-strategy
+Single symbol with multiple strategies combined.
+
+### GET /api/v1/symbols
+List available symbols from data source.
+
+---
 
 ## Phase 3 Changes (Future)
 
-- **GET /jobs**: Will include pagination for large result sets
+- **Rate limiting**: 60 req/min per IP
+- **Auth**: JWT bearer tokens
+- **Pagination**: For large result sets
 - **User isolation**: Results scoped to authenticated user
 
 ---
