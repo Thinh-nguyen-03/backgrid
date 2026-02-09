@@ -1,9 +1,12 @@
 # Developer Setup
 
+**Phase 2 Complete** (650 tests passing)
+
 ## Requirements
-- Python 3.11+
-- Docker, docker compose (optional for local PostgreSQL)
+- Python 3.13+ (tested on 3.13.3)
+- Docker, docker compose (optional for PostgreSQL)
 - git
+- Redis (optional, for Celery workers)
 
 ## One-Time Setup
 
@@ -17,28 +20,47 @@ cp .env.example .env
 ## Running Tests
 
 ```bash
-# All tests
+# All tests (650 tests, ~10s)
 pytest tests/ -v
 
-# Specific test files
+# Week 7 test files
+pytest tests/test_rsi_strategy.py -v          # 32 tests
+pytest tests/test_strategy_manager.py -v      # 26 tests
+pytest tests/test_postgres_loader.py -v       # 18 tests
+pytest tests/test_atr_sizer.py -v             # 23 tests
+pytest tests/test_transaction_costs.py -v     # 31 tests
+pytest tests/test_risk_management.py -v       # 49 tests
+pytest tests/test_integration.py -v           # 14 tests
+pytest tests/test_validation.py -v            # 27 tests
+
+# Other test files
 pytest tests/test_strategies.py -v
 pytest tests/test_data_loaders.py -v
 pytest tests/test_position_sizing.py -v
 pytest tests/test_execution.py -v
 pytest tests/test_risk.py -v
+pytest tests/test_api.py -v
+pytest tests/test_portfolio.py -v
 
-# With coverage
+# With coverage (expect >95%)
 pytest tests/ --cov=src --cov-report=html
 ```
 
 ## Starting the API
 
 ```bash
-# Development mode
-python -m uvicorn src.api:app --reload
+# Development mode (SQLite, auto-reload)
+uvicorn src.api:app --reload --port 8000
 
-# Production mode
-python -m uvicorn src.api:app --host 0.0.0.0 --port 8000
+# Production mode (requires DATABASE_URL)
+export DATABASE_URL="postgresql://user:pass@localhost:5432/backgrid"
+uvicorn src.api:app --host 0.0.0.0 --port 8000 --workers 4
+
+# Start Celery worker (optional, for async batch processing)
+celery -A src.worker worker --loglevel=info --pool=threads
+
+# Access API docs
+open http://localhost:8000/docs
 ```
 
 ## Local Services (Docker)
@@ -140,10 +162,17 @@ CREATE TABLE symbols (
 | RT_COOLDOWN_DAYS_ON_STOP | 1 | Trading days locked out after stop trigger |
 | RT_MAX_EXPOSURE_PER_SECTOR | 0.30 | Maximum portfolio exposure per sector |
 
-## Migrations
+## Database Migrations
 
 ```bash
+# Upgrade to latest schema
 alembic upgrade head
+
+# Create new migration (after model changes)
+alembic revision --autogenerate -m "description"
+
+# Downgrade one version
+alembic downgrade -1
 ```
 
 ## Seeding Test Data
