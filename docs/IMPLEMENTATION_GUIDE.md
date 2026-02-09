@@ -1,8 +1,8 @@
 # Backgrid Implementation Guide
 
-**Version**: 3.1 (RapidTrader Integration)
-**Last Updated**: 2026-02-03
-**Status**: Phase 2 Week 5 Complete (Celery Workers Tested), Week 6 (API & Database Extensions) Next
+**Version**: 3.2 (RapidTrader Integration)
+**Last Updated**: 2026-02-07
+**Status**: Phase 2 Week 6 Complete (Portfolio API, Database Persistence, SQLite Support)
 
 ---
 
@@ -21,7 +21,9 @@ This guide details the implementation plan to extend Backgrid from a single-stra
 | **Position Sizing** | Complete | [src/position_sizing/](../src/position_sizing/) |
 | **Execution Module** | Complete | [src/execution/](../src/execution/) |
 | **FastAPI + Sync Execution** | Complete | [src/api.py](../src/api.py) |
-| **PostgreSQL + SQLAlchemy** | Ready | [src/db.py](../src/db.py) |
+| **Portfolio API** | Complete | [src/api_portfolio.py](../src/api_portfolio.py) |
+| **PostgreSQL/SQLite + SQLAlchemy** | Complete | [src/db.py](../src/db.py) |
+| **Alembic Migrations** | Complete | [migrations/](../migrations/) |
 | **Docker (Redis, PostgreSQL, Celery)** | Ready | [docker-compose.yml](../docker-compose.yml) |
 | **Celery Workers** | Complete | [src/worker.py](../src/worker.py) |
 | **Portfolio Module** | Complete | [src/portfolio/](../src/portfolio/) |
@@ -334,13 +336,16 @@ tests/test_portfolio.py # 65+ unit tests
 **Priority**: P1 (High)
 **Hours**: 32-40
 
-#### Files Created
+#### Files Created / Modified
 ```
-src/api_portfolio.py       # Portfolio API endpoints
-src/models.py              # Extended Pydantic models
-src/db.py                  # Extended SQLAlchemy models
+src/api_portfolio.py       # Portfolio API endpoints (~450 lines)
+src/models.py              # Extended Pydantic models (~350 lines)
+src/db.py                  # Extended SQLAlchemy models + helpers (~420 lines)
 migrations/versions/add_portfolio_tables_week6.py  # Alembic migration
-tests/test_api_portfolio.py  # 30+ unit tests
+migrations/env.py          # Alembic config with SQLite default
+tests/test_api_portfolio.py  # 29 unit tests (~575 lines)
+tests/conftest.py          # Test environment setup (SQLite)
+requirements.txt           # Updated dependency versions
 ```
 
 #### New API Endpoints
@@ -376,7 +381,7 @@ tests/test_api_portfolio.py  # 30+ unit tests
    - PostgreSQL source for RapidTrader integration
    - Sector filtering support
 
-#### New Database Tables (Alembic Migrations)
+#### New Database Tables (Alembic Migrations - PostgreSQL/SQLite)
 
 ```sql
 CREATE TABLE portfolio_results (
@@ -441,15 +446,28 @@ CREATE TABLE trade_ledger (
 );
 ```
 
+#### Compatibility Fixes (2026-02-07)
+
+| Issue | Fix |
+|-------|-----|
+| SQLAlchemy 2.0.23 incompatible with Python 3.13 | Updated to `SQLAlchemy>=2.0.25` |
+| Alembic `KeyError: 'url'` without DATABASE_URL | Default to SQLite in `migrations/env.py` |
+| Tests failed requiring PostgreSQL | Created `tests/conftest.py` with SQLite, updated `src/db.py` for dual engine support |
+| Mock path `src.api_portfolio.YahooDataLoader` wrong | Changed to `src.data.YahooDataLoader` (where import resolves) |
+| 45 `datetime.utcnow()` deprecation warnings | Replaced with `datetime.now(timezone.utc)` |
+| `declarative_base` deprecation warning | Import from `sqlalchemy.orm` instead of `sqlalchemy.ext.declarative` |
+
 #### Acceptance Criteria
 - [x] Portfolio backtest endpoint accepts multiple symbols
-- [x] Results persisted to PostgreSQL
+- [x] Results persisted to database (PostgreSQL or SQLite)
 - [x] Trade ledger supports filtering and pagination
 - [x] Multi-strategy backtest works with all combination methods
 - [x] Symbols endpoint returns data from Yahoo or PostgreSQL
-- [x] All unit tests passing (30+ tests)
+- [x] All 29 unit tests passing with zero deprecation warnings
+- [x] SQLite works for local development and testing
+- [x] Python 3.13 fully compatible
 
-**Status**: COMPLETE (2026-02-03)
+**Status**: COMPLETE (2026-02-07)
 
 ---
 
@@ -461,25 +479,32 @@ CREATE TABLE trade_ledger (
 #### Test Categories
 
 1. **Unit Tests**
-   - `tests/test_rsi_strategy.py`
-   - `tests/test_strategy_manager.py`
-   - `tests/test_postgres_loader.py`
-   - `tests/test_atr_sizer.py`
-   - `tests/test_transaction_costs.py`
-   - `tests/test_risk_management.py`
+   - [x] `tests/test_rsi_strategy.py` - 32 tests: RSI calculation (Wilder's smoothing), 2-of-3 confirmation, parameter validation, signal generation
+   - [x] `tests/test_strategy_manager.py` - 26 tests: OR/AND/PRIORITY/WEIGHTED combination, attribution tracking, real MA+RSI combination
+   - [x] `tests/test_postgres_loader.py` - 18 tests: Config validation, load/batch_load, symbol metadata, connection handling
+   - [x] `tests/test_atr_sizer.py` - 23 tests: ATR calculation accuracy, position sizing constraints, volatility scaling, RapidTrader defaults
+   - [x] `tests/test_transaction_costs.py` - 31 tests: Commission/spread/slippage calculation, effective price, round-trip costs, zero-cost factory
+   - [x] `tests/test_risk_management.py` - 49 tests: Market regime filter, stop loss management, sector limits, portfolio heat tracker, integration scenarios
 
 2. **Integration Tests**
-   - API -> Celery -> PostgreSQL flow
-   - Multi-symbol batch processing
+   - [x] `tests/test_integration.py` - 14 tests: API -> Database end-to-end flow, portfolio submit/retrieve, trade ledger persistence, partial failure handling, multi-strategy backtest, symbols endpoint, error handling, DB consistency
 
 3. **Validation Tests**
-   - Compare results with RapidTrader historical performance
-   - Verify signal generation matches RapidTrader logic
+   - [x] `tests/test_validation.py` - 27 tests: RapidTrader parameter compatibility (RSI period=14, oversold=30, overbought=55, 2-of-3 confirmation), MA 20/100 periods, ATR 14-period/3x stops, transaction cost <0.5%, risk management (SPY 200-SMA, 30% sector limit, cooldown, 6% heat), performance targets (<500ms single symbol, <10ms signal)
 
 #### Performance Targets
-- 500 symbol batch: < 5 minutes
-- Single symbol (cached): < 500ms
-- Memory usage: < 2GB for full batch
+- [x] Single symbol (cached): < 500ms
+- [x] Signal calculation: < 10ms for 252-day series
+- 500 symbol batch: < 5 minutes (requires production infrastructure)
+- Memory usage: < 2GB for full batch (requires production infrastructure)
+
+#### Completion Summary
+- 650 tests passing (220 new Week 7 tests + 430 existing)
+- All RapidTrader parameter defaults validated
+- End-to-end API -> SQLite -> response flow tested
+- Wilder's RSI smoothing verified against manual calculation
+
+**Status**: COMPLETE (2026-02-07)
 
 ---
 
@@ -524,10 +549,11 @@ Before adding any Phase 3 technology, document:
 backgrid/
 ├── src/
 │   ├── __init__.py
-│   ├── api.py                    # FastAPI app
+│   ├── api.py                    # FastAPI app (includes portfolio + symbols routers)
+│   ├── api_portfolio.py          # Portfolio API endpoints [COMPLETE - Week 6]
 │   ├── backtest.py               # Backtest engine (run_backtest + run_backtest_enhanced)
-│   ├── models.py                 # Pydantic models
-│   ├── db.py                     # SQLAlchemy
+│   ├── models.py                 # Pydantic models (extended Week 6)
+│   ├── db.py                     # SQLAlchemy models + helpers (PostgreSQL/SQLite)
 │   ├── ui.py                     # Web UI
 │   ├── worker.py                 # Celery worker tasks (complete)
 │   │
@@ -570,6 +596,7 @@ backgrid/
 │       └── metrics.py            # Sortino, Calmar, TradeMetrics, PortfolioMetrics
 │
 ├── tests/
+│   ├── conftest.py               # Sets DATABASE_URL to SQLite for testing
 │   ├── test_strategies.py        # 45 tests
 │   ├── test_data_loaders.py      # 25 tests
 │   ├── test_data.py              # 26 tests (legacy)
@@ -577,13 +604,19 @@ backgrid/
 │   ├── test_execution.py         # 37 tests
 │   ├── test_risk.py              # 60+ tests (Week 4)
 │   ├── test_portfolio.py         # 65+ tests (Week 5)
+│   ├── test_api_portfolio.py     # 29 tests (Week 6)
 │   ├── test_backtest.py          # 32 tests
 │   ├── test_models.py            # 22 tests
 │   └── test_api.py               # 19 tests
 │
-├── config/
 ├── migrations/
+│   ├── env.py                    # Alembic config (defaults to SQLite)
+│   └── versions/
+│       └── add_portfolio_tables_week6.py
+│
+├── config/
 ├── docker-compose.yml
+├── requirements.txt              # Python 3.13 compatible dependencies
 └── docs/
 ```
 
@@ -745,14 +778,26 @@ Files: src/strategies/rsi_strategy.py, tests/test_rsi_strategy.py
 ## Quick Start Commands
 
 ```bash
-# Start infrastructure
-docker-compose up -d postgres redis
+# Install dependencies
+pip install -r requirements.txt
 
-# Run existing tests
+# Run database migrations (defaults to SQLite)
+alembic upgrade head
+
+# Run database migrations (with PostgreSQL)
+DATABASE_URL=postgresql://user:pass@localhost:5432/backgrid alembic upgrade head
+
+# Run tests (uses SQLite, no external deps needed)
 pytest tests/ -v
 
-# Start API (development)
+# Start API (development, defaults to SQLite)
 python -m uvicorn src.api:app --reload
+
+# Start API (with PostgreSQL)
+DATABASE_URL=postgresql://user:pass@localhost:5432/backgrid python -m uvicorn src.api:app --reload
+
+# Start infrastructure (for full stack with Celery)
+docker-compose up -d postgres redis
 
 # Start Celery worker
 celery -A src.worker worker --loglevel=info
@@ -771,9 +816,17 @@ if sys.platform == "win32":
 ```
 
 Dependencies have been updated for Python 3.13 compatibility:
+- `SQLAlchemy>=2.0.25` (required for Python 3.13 type system changes)
 - `celery>=5.4.0` (required for Python 3.13)
 - `psycopg2-binary>=2.9.11` (pre-built wheels for Python 3.13)
 - `pydantic>=2.5.3` (avoids Rust compilation)
+
+### Test Environment
+
+Tests run against SQLite with no external dependencies:
+- `tests/conftest.py` sets `DATABASE_URL=sqlite:///test_backgrid.db` before any imports
+- Mock patching uses `@patch('src.data.YahooDataLoader')` (target where import resolves)
+- All timestamps use `datetime.now(timezone.utc)` (no deprecation warnings)
 
 ---
 

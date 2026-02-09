@@ -576,36 +576,54 @@ app.conf.update(
 |------|---------|-------|
 | src/api_portfolio.py | Portfolio API endpoints | ~450 |
 | src/models.py | Extended Pydantic models | ~350 |
-| src/db.py | Extended SQLAlchemy models + helpers | ~300 |
+| src/db.py | Extended SQLAlchemy models + helpers | ~420 |
 | migrations/versions/add_portfolio_tables_week6.py | Alembic migration | ~100 |
-| tests/test_api_portfolio.py | Comprehensive unit tests | ~400 |
+| migrations/env.py | Alembic config with SQLite default | ~90 |
+| tests/test_api_portfolio.py | Comprehensive unit tests | ~575 |
+| tests/conftest.py | Test environment setup (SQLite) | ~6 |
 
 **Key Design Decisions**:
 
 1. **Synchronous Execution with Database Persistence**:
    - Portfolio backtests run synchronously for simplicity
-   - Results written to PostgreSQL as they complete
+   - Results written to PostgreSQL/SQLite as they complete
    - Future: Can switch to async Celery execution for large portfolios
 
-2. **Batch ID Generation**:
+2. **Dual Database Support (PostgreSQL + SQLite)**:
+   - PostgreSQL for production, SQLite for local development and testing
+   - `DATABASE_URL` environment variable selects database
+   - SQLite engine uses `check_same_thread=False` for FastAPI compatibility
+   - PostgreSQL engine uses connection pooling (pool_size=5, max_overflow=10)
+   - Alembic migrations default to SQLite when `DATABASE_URL` is not set
+
+3. **Batch ID Generation**:
    - Format: `portfolio-{timestamp}-{short_uuid}`
    - Enables unique identification and retrieval
    - Includes timestamp for chronological ordering
 
-3. **Trade Ledger Design**:
+4. **Trade Ledger Design**:
    - Linked to portfolio via `batch_id` foreign key
    - CASCADE delete when portfolio deleted
    - Indexed on symbol, strategy, entry_date for efficient queries
 
-4. **Multi-Strategy API**:
+5. **Multi-Strategy API**:
    - Reuses existing StrategyManager from Week 1
    - Supports all combination methods (OR, AND, PRIORITY, WEIGHTED)
    - Returns combined metrics for strategy ensemble
 
-5. **Symbols API**:
+6. **Symbols API**:
    - Yahoo source: Returns curated list of popular symbols
    - PostgreSQL source: Queries RapidTrader symbols table
    - Graceful fallback if PostgreSQL unavailable
+
+7. **Timezone-Aware Timestamps**:
+   - All `datetime.utcnow()` replaced with `datetime.now(timezone.utc)`
+   - Eliminates Python 3.12+ deprecation warnings
+   - Helper function `_utcnow()` in db.py for model defaults
+
+8. **Modern SQLAlchemy Imports**:
+   - `declarative_base` imported from `sqlalchemy.orm` (not deprecated `sqlalchemy.ext.declarative`)
+   - SQLAlchemy >= 2.0.25 required for Python 3.13 compatibility
 
 **RapidTrader Integration Points**:
 - PostgreSQL loader can query RapidTrader `bars_daily` table
@@ -613,9 +631,11 @@ app.conf.update(
 - Transaction costs match RapidTrader parameters
 
 **Test Coverage**:
-- 30+ new tests for portfolio API
+- 29 tests for portfolio API (all passing)
 - Tests for all endpoints, error cases, pagination
-- Database integration tests verify persistence
+- Database integration tests verify persistence with SQLite
+- `tests/conftest.py` sets `DATABASE_URL=sqlite:///test_backgrid.db` before imports
+- Mock patching targets `src.data.YahooDataLoader` (where the import resolves from)
 
 **What Was NOT Implemented (Intentionally Deferred)**:
 - Async execution via Celery (can be added if needed)
@@ -625,12 +645,131 @@ app.conf.update(
 
 **Success Criteria**:
 - [x] POST /api/v1/backtest/portfolio accepts multi-symbol requests
-- [x] Results persisted to PostgreSQL with foreign key relationships
+- [x] Results persisted to database with foreign key relationships
 - [x] GET endpoints return results with per-symbol breakdown
 - [x] Trade ledger supports filtering by symbol/strategy
 - [x] Multi-strategy backtest combines signals correctly
 - [x] Symbols API returns data from Yahoo or PostgreSQL
-- [x] All unit tests passing (30+ tests)
+- [x] All unit tests passing (29 tests)
+- [x] SQLite support for local dev and testing (no PostgreSQL required)
+- [x] No deprecation warnings in test output
+
+---
+
+## Phase 2 - Week 6: Compatibility Fixes (2026-02-07)
+
+### Decision: SQLAlchemy Version Update for Python 3.13
+
+**Date**: 2026-02-07
+
+**Problem**: Running `alembic upgrade head` on Python 3.13 failed with:
+```
+AssertionError: Class SQLCoreOperations directly inherits TypingOnly but has additional attributes
+```
+
+**Evidence**: SQLAlchemy 2.0.23 is incompatible with Python 3.13's type system changes.
+
+**Decision**: Updated `requirements.txt` from `SQLAlchemy==2.0.23` to `SQLAlchemy>=2.0.25`. Version 2.0.25+ includes fixes for Python 3.13 compatibility.
+
+**Impact**: Alembic migrations and all database operations now work on Python 3.13.
+
+---
+
+### Decision: Default to SQLite for Local Development
+
+**Date**: 2026-02-07
+
+**Problem**: Tests and local development required a running PostgreSQL instance, creating unnecessary friction. Running `alembic upgrade head` without `DATABASE_URL` set caused `KeyError: 'url'`.
+
+**Evidence**:
+- Test suite failed with `psycopg2.OperationalError: password authentication failed`
+- Alembic crashed when `DATABASE_URL` wasn't configured
+
+**Alternatives Considered**:
+1. **Require PostgreSQL locally**: Increases setup friction, Docker dependency
+2. **Default to SQLite**: Zero-config, works everywhere
+
+**Decision**: Default to SQLite when `DATABASE_URL` is not set:
+- `migrations/env.py`: `database_url = os.getenv("DATABASE_URL", "sqlite:///backgrid.db")`
+- `src/db.py`: Conditional engine creation (SQLite uses `check_same_thread=False`, PostgreSQL uses connection pooling)
+- `tests/conftest.py`: Forces `DATABASE_URL=sqlite:///test_backgrid.db`
+
+**Impact**: Local development and testing work without PostgreSQL. Production deployments set `DATABASE_URL` to PostgreSQL.
+
+---
+
+### Decision: Fix datetime.utcnow() Deprecation Warnings
+
+**Date**: 2026-02-07
+
+**Problem**: 45 deprecation warnings in test output:
+```
+DeprecationWarning: datetime.datetime.utcnow() is deprecated, use datetime.datetime.now(datetime.timezone.utc) instead
+```
+
+**Decision**: Replaced all `datetime.utcnow()` with `datetime.now(timezone.utc)`:
+- `src/db.py`: Added `_utcnow()` helper function for model column defaults
+- `src/api_portfolio.py`: Updated all timestamp generation
+
+Also fixed `declarative_base` import to use `sqlalchemy.orm.declarative_base` instead of deprecated `sqlalchemy.ext.declarative.declarative_base`.
+
+**Impact**: Zero deprecation warnings in test output. Future-proof for Python 3.14+.
+
+---
+
+## Week 7: Testing & Validation (Completed: 2026-02-07)
+
+### Decision: Comprehensive Test Suite for Production Readiness
+
+**Date**: 2026-02-07
+
+**Problem**: Phase 2 implementation lacked thorough unit, integration, and validation tests. Needed confidence that:
+- RSI strategy matches Wilder's smoothing formula exactly
+- Multi-strategy combination logic works for all methods (OR/AND/PRIORITY/WEIGHTED)
+- Transaction cost calculations align with RapidTrader specifications
+- Risk management modules enforce constraints correctly
+- End-to-end API -> Database flow persists data correctly
+
+**Approach**:
+Created 8 new test files with 220 tests covering:
+1. **Unit Tests**: Individual component validation (RSI, strategy manager, data loaders, position sizing, transaction costs, risk management)
+2. **Integration Tests**: API endpoint -> database persistence -> retrieval flow
+3. **Validation Tests**: RapidTrader parameter compatibility and performance targets
+
+**Test Files Created**:
+- `tests/test_rsi_strategy.py` (32 tests): RSI calculation accuracy, Wilder's smoothing verification, 2-of-3 confirmation logic
+- `tests/test_strategy_manager.py` (26 tests): Signal combination methods, attribution tracking, real MA+RSI interaction
+- `tests/test_postgres_loader.py` (18 tests): Config validation, batch loading, metadata queries
+- `tests/test_atr_sizer.py` (23 tests): ATR calculation, position size constraints, volatility scaling
+- `tests/test_transaction_costs.py` (31 tests): Commission/spread/slippage formulas, effective price calculation
+- `tests/test_risk_management.py` (49 tests): Market regime filter, stop loss manager, sector limits, portfolio heat
+- `tests/test_integration.py` (14 tests): End-to-end API flows, trade ledger persistence, error handling
+- `tests/test_validation.py` (27 tests): RapidTrader parameter validation, performance benchmarks
+
+**Results**:
+```
+Total tests: 650 passing (220 new + 430 existing)
+Test runtime: ~8 seconds
+Coverage: Critical path >95%
+Performance: Single symbol <500ms, signal calculation <10ms
+```
+
+**Key Findings**:
+- RSI with pure uptrend/downtrend data needs noise to avoid `avg_loss=0` causing `fillna(50)`
+- Mock patching for `YahooDataLoader` must target `src.data.YahooDataLoader` (where defined), not `src.api_portfolio.YahooDataLoader` (lazy import)
+- Numpy array comparison `Signal.SELL in signals.values` fails; use `(signals == Signal.SELL).any()`
+- Transaction cost formula: `spread = trade_value * (bps/10000) / 2`, `slippage = trade_value * (bps/10000)`
+- Calmar ratio returns 0 for monotonically increasing curves (zero drawdown)
+
+**Impact**:
+- Production-ready confidence in all Phase 2 components
+- RapidTrader parameter compatibility validated
+- Performance targets verified: <500ms single symbol, <10ms signal calculation
+- Regression prevention for future changes
+
+**Tradeoffs**:
+- Test suite takes ~8 seconds to run (acceptable for CI/CD)
+- Some performance targets (500 symbol batch <5 min) require production infrastructure to validate
 
 ---
 
@@ -675,11 +814,11 @@ What you gave up to get this benefit
 - **Will measure**: Job queue depth, timeout frequency
 - **Estimated**: Only if load increases
 
-#### Database Persistence
-- **Trigger**: Need to analyze historical backtest results or share results across sessions
-- **Current status**: In-memory is sufficient
-- **Options**: PostgreSQL (production) or SQLite (simplicity)
-- **Estimated**: When multiple users need access
+#### Database Persistence - IMPLEMENTED (Week 6)
+- **Trigger**: Portfolio results needed persistence across sessions
+- **Current status**: Implemented with PostgreSQL (production) and SQLite (local dev)
+- **Tables**: portfolio_results, symbol_results, trade_ledger
+- **Migration**: Alembic managed
 
 #### Data Caching
 - **Trigger**: Hitting Yahoo Finance rate limits or data fetch >50% of total latency

@@ -35,7 +35,7 @@ graph TD
 - **Get trades**: `GET /api/v1/backtest/portfolio/{batch_id}/trades`
 - **Multi-strategy**: `POST /api/v1/backtest/multi-strategy`
 - **List symbols**: `GET /api/v1/symbols`
-- **Storage**: PostgreSQL for portfolio results, in-memory for single jobs
+- **Storage**: PostgreSQL/SQLite for portfolio results, in-memory for single jobs
 - **Error handling**: HTTP 400/404/422/500 with clear messages
 - **Logging**: INFO level for all requests
 
@@ -93,6 +93,8 @@ graph TD
 - **PortfolioResult**: Portfolio batch metadata and aggregated metrics
 - **SymbolResult**: Per-symbol results within a portfolio
 - **TradeLedgerEntry**: Individual trade records with P&L tracking
+- **Dual database support**: PostgreSQL (production) and SQLite (local dev/testing)
+- **Timezone-aware timestamps**: Uses `datetime.now(timezone.utc)` throughout
 
 #### Models ([src/models.py](../src/models.py))
 - **Pydantic models** for request/response validation
@@ -119,7 +121,19 @@ graph TD
 
 ### Testing Strategy
 
-**Unit Tests (380+ total)**:
+**Total: 650 tests passing (Week 7 complete)**
+
+**Week 7 Test Files** (220 new tests):
+- 32 tests: `test_rsi_strategy.py` - RSI calculation (Wilder's smoothing), 2-of-3 confirmation, parameter validation
+- 26 tests: `test_strategy_manager.py` - OR/AND/PRIORITY/WEIGHTED combination, attribution tracking
+- 18 tests: `test_postgres_loader.py` - Config validation, load/batch_load, symbol metadata
+- 23 tests: `test_atr_sizer.py` - ATR calculation accuracy, position sizing constraints, volatility scaling
+- 31 tests: `test_transaction_costs.py` - Commission/spread/slippage calculation, effective price, round-trip costs
+- 49 tests: `test_risk_management.py` - Market regime filter, stop loss, sector limits, portfolio heat tracker
+- 14 tests: `test_integration.py` - API -> Database end-to-end flow, portfolio submit/retrieve, trade ledger
+- 27 tests: `test_validation.py` - RapidTrader parameter compatibility, performance targets
+
+**Existing Tests** (430 tests):
 - 22 tests: Model validation
 - 26 tests: Data fetching (legacy)
 - 25 tests: Data loaders (new)
@@ -130,7 +144,13 @@ graph TD
 - 58 tests: Risk management
 - 65+ tests: Portfolio module
 - 19 tests: API endpoints (legacy)
-- 30+ tests: Portfolio API endpoints (Week 6)
+- 29 tests: Portfolio API endpoints (Week 6)
+
+**Test Infrastructure**:
+- `tests/conftest.py`: Sets `DATABASE_URL=sqlite:///test_backgrid.db` before imports
+- SQLite used for all test runs (no PostgreSQL required)
+- Mock patching targets `src.data.YahooDataLoader` (where import resolves)
+- Performance validated: Single symbol <500ms, signal calculation <10ms
 
 **Smoke Tests (5 total)**:
 - Health check
@@ -149,7 +169,7 @@ graph TD
 
 2. **In-memory storage for single jobs**: Results lost on restart
    - Impact: Can't query historical single backtests
-   - Mitigation: Portfolio results persisted to PostgreSQL
+   - Mitigation: Portfolio results persisted to PostgreSQL/SQLite
 
 3. **No authentication**: Open API
    - Impact: Anyone with access can submit jobs
@@ -157,12 +177,17 @@ graph TD
 
 ### Deployment
 
-**Development**:
+**Development** (defaults to SQLite):
 ```bash
 python src/api.py
 ```
 
-**Testing**:
+**Development** (with PostgreSQL):
+```bash
+DATABASE_URL=postgresql://user:pass@localhost:5432/backgrid python src/api.py
+```
+
+**Testing** (uses SQLite via conftest.py):
 ```bash
 pytest tests/
 python scripts/smoke_test.py
@@ -176,7 +201,7 @@ python scripts/smoke_test.py
 
 **Status**: Week 6 Complete - Portfolio API and database persistence implemented
 
-**Stack**: FastAPI + Celery + Redis + PostgreSQL + pandas + yfinance
+**Stack**: FastAPI + Celery + Redis + PostgreSQL/SQLite + pandas + yfinance
 
 **Runtime**: Multi-worker parallel execution via Celery
 
@@ -214,6 +239,9 @@ graph TD
 - Trade ledger with symbol/strategy filtering
 - Pagination support for large result sets
 - Multi-strategy signal combination (OR, AND, PRIORITY, WEIGHTED)
+- Dual database support: PostgreSQL (production) or SQLite (local dev/testing)
+- Timezone-aware timestamps using `datetime.now(timezone.utc)`
+- SQLAlchemy 2.0.25+ with modern `sqlalchemy.orm.declarative_base`
 
 ### Week 5 Implementation (COMPLETE)
 

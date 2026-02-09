@@ -84,23 +84,159 @@ CREATE TABLE market_state (
 
 ---
 
-## Backgrid Internal Tables (Future)
+## Backgrid Internal Tables (Phase 2 - Week 6) - IMPLEMENTED
+
+Managed by SQLAlchemy ORM in [src/db.py](../src/db.py). Supports both PostgreSQL and SQLite.
+
+### Database Configuration
+
+```python
+# Default: PostgreSQL for production, SQLite for local dev
+DATABASE_URL = os.getenv(
+    "DATABASE_URL",
+    "postgresql://backgrid:backgrid_dev_password@localhost:5432/backgrid"
+)
+
+# SQLite engine uses check_same_thread=False for FastAPI compatibility
+# PostgreSQL engine uses connection pooling (pool_size=5, max_overflow=10)
+```
+
+### Test Configuration
+
+Tests use SQLite via `tests/conftest.py`:
+```python
+os.environ["DATABASE_URL"] = "sqlite:///test_backgrid.db"
+```
+
+**Week 7 Testing**: 650 tests passing
+- All data models validated through integration tests
+- PostgreSQL loader tested with mocked connections
+- SQLite compatibility verified for all CRUD operations
+- Transaction cost calculations validated against RapidTrader specs
 
 ### Core Tables
-- `symbols(symbol_id UUID PK, ticker TEXT UNIQUE, meta JSONB, created_at TIMESTAMPTZ)`
-- `strategies(strategy_id TEXT PK, name TEXT, schema_json JSONB, created_at TIMESTAMPTZ)`
-- `jobs(job_id UUID PK, user_id UUID, payload_json JSONB, status TEXT, checksum TEXT, submitted_at, started_at, finished_at)`
-- `results(job_id UUID PK, metrics_json JSONB, equity_curve_id UUID, trade_log_id UUID, created_at TIMESTAMPTZ)`
-- `portfolios(portfolio_id UUID PK, params_json JSONB, weights_json JSONB, metrics_json JSONB, created_at TIMESTAMPTZ)`
 
-### Timescale Hypertables
-- `equity_points(job_id UUID, ts TIMESTAMPTZ, equity DOUBLE PRECISION, PRIMARY KEY(job_id, ts))`
-- `prices(symbol_id UUID, ts TIMESTAMPTZ, o,h,l,c DOUBLE PRECISION, v BIGINT, PRIMARY KEY(symbol_id, ts))`
+#### jobs
+```sql
+CREATE TABLE jobs (
+    job_id VARCHAR PRIMARY KEY,
+    symbol VARCHAR NOT NULL,
+    strategy VARCHAR NOT NULL,
+    params JSON,
+    start_date VARCHAR NOT NULL,
+    end_date VARCHAR,
+    status VARCHAR NOT NULL DEFAULT 'queued',
+    created_at TIMESTAMP NOT NULL,
+    started_at TIMESTAMP,
+    finished_at TIMESTAMP
+);
+```
+
+#### results
+```sql
+CREATE TABLE results (
+    job_id VARCHAR PRIMARY KEY,
+    sharpe REAL,
+    max_drawdown REAL,
+    total_return REAL,
+    runtime_seconds REAL,
+    equity_curve JSON,
+    error TEXT,
+    created_at TIMESTAMP NOT NULL
+);
+```
+
+#### portfolio_results
+```sql
+CREATE TABLE portfolio_results (
+    batch_id VARCHAR(64) PRIMARY KEY,
+    symbols JSON NOT NULL,
+    strategy VARCHAR(64) NOT NULL,
+    params JSON,
+    start_date VARCHAR(10) NOT NULL,
+    end_date VARCHAR(10),
+    config JSON,
+    status VARCHAR(32) DEFAULT 'pending',
+    symbols_requested INTEGER,
+    symbols_completed INTEGER,
+    symbols_failed INTEGER,
+    failed_symbols JSON,
+    symbol_count INTEGER,
+    total_trades INTEGER,
+    average_sharpe REAL,
+    average_return REAL,
+    average_max_drawdown REAL,
+    best_symbol VARCHAR(16),
+    worst_symbol VARCHAR(16),
+    runtime_seconds REAL,
+    error TEXT,
+    created_at TIMESTAMP NOT NULL,
+    started_at TIMESTAMP,
+    finished_at TIMESTAMP
+);
+```
+
+#### symbol_results
+```sql
+CREATE TABLE symbol_results (
+    id VARCHAR(64) PRIMARY KEY,
+    batch_id VARCHAR(64) REFERENCES portfolio_results(batch_id) ON DELETE CASCADE,
+    symbol VARCHAR(16) NOT NULL,
+    status VARCHAR(32) DEFAULT 'pending',
+    job_id VARCHAR(64),
+    sharpe REAL,
+    max_drawdown REAL,
+    total_return REAL,
+    total_trades INTEGER,
+    win_rate REAL,
+    total_transaction_costs REAL,
+    runtime_seconds REAL,
+    error TEXT,
+    created_at TIMESTAMP NOT NULL
+);
+```
+
+#### trade_ledger
+```sql
+CREATE TABLE trade_ledger (
+    id VARCHAR(64) PRIMARY KEY,
+    batch_id VARCHAR(64) REFERENCES portfolio_results(batch_id) ON DELETE CASCADE,
+    symbol VARCHAR(16) NOT NULL,
+    entry_date TIMESTAMP,
+    exit_date TIMESTAMP,
+    side VARCHAR(8) NOT NULL,
+    shares INTEGER NOT NULL,
+    entry_price REAL,
+    exit_price REAL,
+    pnl REAL,
+    pnl_pct REAL,
+    strategy VARCHAR(64),
+    transaction_costs REAL,
+    created_at TIMESTAMP NOT NULL
+);
+```
+
+### Relationships
+- `portfolio_results` -> `symbol_results`: One-to-many (CASCADE delete)
+- `portfolio_results` -> `trade_ledger`: One-to-many (CASCADE delete)
 
 ### Invariants & Constraints
-- `checksum(payload_json)` ensures idempotent submissions; `(checksum, user_id)` unique.
-- All timestamps UTC; `ts` is monotonic within a job.
-- Results row must exist for any `equity_points` (FK on delete cascade).
+- All timestamps are timezone-aware UTC (`datetime.now(timezone.utc)`)
+- `batch_id` format: `portfolio-{YYYYMMDD-HHMMSS}-{short_uuid}`
+- `symbol_result.id` format: `{batch_id}-{symbol}`
+- `trade_ledger.id` format: `{batch_id}-{symbol}-{index}`
+
+### Alembic Migrations
+
+Migration managed via Alembic in `migrations/`:
+- `add_portfolio_tables_week6.py`: Creates `portfolio_results`, `symbol_results`, `trade_ledger`
+- Default database URL for migrations: SQLite (`sqlite:///backgrid.db`)
+
+### Future Tables (Phase 3)
+
+Only if triggered by performance needs:
+- `equity_points`: TimescaleDB hypertable for equity curves
+- `prices`: TimescaleDB hypertable for OHLCV data
 
 ---
 
@@ -459,20 +595,15 @@ PostgresDataLoader uses SQLAlchemy QueuePool:
 
 ---
 
-## Example Migration (Abridged)
+## Running Migrations
 
-```sql
-CREATE EXTENSION IF NOT EXISTS timescaledb;
+```bash
+# Apply migrations (defaults to SQLite for local dev)
+alembic upgrade head
 
-CREATE TABLE symbols(
-  symbol_id uuid PRIMARY KEY,
-  ticker text UNIQUE NOT NULL,
-  meta jsonb,
-  created_at timestamptz DEFAULT now()
-);
+# Apply migrations with PostgreSQL
+DATABASE_URL=postgresql://user:pass@localhost:5432/backgrid alembic upgrade head
 
--- ... other tables ...
-
-SELECT create_hypertable('equity_points','ts', if_not_exists => TRUE);
-SELECT create_hypertable('prices','ts', if_not_exists => TRUE);
+# Generate new migration after model changes
+alembic revision --autogenerate -m "description"
 ```
