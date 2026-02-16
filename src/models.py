@@ -104,6 +104,11 @@ class BacktestRequest(BaseModel):
 
         return v
 
+    config: Optional["BacktestConfigModel"] = Field(
+        default=None,
+        description="Backtest configuration (position sizing, transaction costs, etc.)"
+    )
+
     model_config = {
         "json_schema_extra": {
             "examples": [
@@ -112,7 +117,11 @@ class BacktestRequest(BaseModel):
                     "strategy": "ma_crossover",
                     "params": {"fast": 10, "slow": 30},
                     "start": "2020-01-01",
-                    "end": "2023-12-31"
+                    "end": "2023-12-31",
+                    "config": {
+                        "initial_capital": 10000,
+                        "enable_transaction_costs": True
+                    }
                 }
             ]
         }
@@ -266,6 +275,7 @@ class SymbolResultModel(BaseModel):
     total_trades: Optional[int] = Field(None, description="Number of trades")
     win_rate: Optional[float] = Field(None, description="Win rate")
     total_transaction_costs: Optional[float] = Field(None, description="Total transaction costs")
+    equity_curve: Optional[List[float]] = Field(None, description="Equity curve values")
     error: Optional[str] = Field(None, description="Error message if failed")
 
 
@@ -285,6 +295,9 @@ class PortfolioBacktestResponse(BaseModel):
     best_symbol: Optional[str] = Field(None, description="Best performing symbol")
     worst_symbol: Optional[str] = Field(None, description="Worst performing symbol")
     runtime_seconds: Optional[float] = Field(None, description="Total runtime")
+    portfolio_equity_curve: Optional[List[float]] = Field(
+        None, description="Aggregated portfolio equity curve"
+    )
     results_by_symbol: Optional[Dict[str, SymbolResultModel]] = Field(
         None, description="Per-symbol results"
     )
@@ -441,3 +454,7 @@ class SymbolListResponse(BaseModel):
     total: int = Field(..., description="Total number of symbols")
     symbols: List[SymbolInfo] = Field(..., description="List of symbols")
     source: str = Field(..., description="Data source")
+
+
+# Resolve forward reference for BacktestRequest.config
+BacktestRequest.model_rebuild()
