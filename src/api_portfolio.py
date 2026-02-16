@@ -36,7 +36,16 @@ from .db import (
     create_trade_entry,
     get_trades_for_batch,
 )
-from .backtest import run_backtest_enhanced, BacktestConfig
+from .backtest import (
+    run_backtest_enhanced,
+    BacktestConfig,
+    calculate_returns,
+    calculate_sharpe_ratio,
+    calculate_max_drawdown,
+    calculate_total_return,
+    _signals_to_positions,
+)
+from .portfolio.metrics import aggregate_equity_curves
 
 logger = logging.getLogger(__name__)
 
@@ -84,6 +93,7 @@ def _run_portfolio_backtest_sync(
     results = []
     all_trades = []
     failed_symbols = []
+    symbol_curves = {}
 
     for symbol in symbols:
         result_id = _generate_result_id(batch_id, symbol)
@@ -100,6 +110,9 @@ def _run_portfolio_backtest_sync(
 
             backtest_result = run_backtest_enhanced(df, strategy, params or {}, config, symbol)
 
+            curve = backtest_result.equity_curve
+            symbol_curves[symbol] = curve
+
             symbol_data = {
                 "status": "completed",
                 "job_id": backtest_result.job_id,
@@ -110,6 +123,7 @@ def _run_portfolio_backtest_sync(
                 "win_rate": backtest_result.win_rate,
                 "total_transaction_costs": backtest_result.total_transaction_costs,
                 "runtime_seconds": backtest_result.runtime_seconds,
+                "equity_curve": curve,
             }
             create_symbol_result(db, result_id, batch_id, symbol, symbol_data)
 
@@ -145,6 +159,9 @@ def _run_portfolio_backtest_sync(
 
     total_trades = sum(r.get("total_trades", 0) for r in successful)
 
+    initial_capital = (config_dict or {}).get("initial_capital", 10000.0)
+    portfolio_curve = aggregate_equity_curves(symbol_curves, initial_capital)
+
     update_portfolio_result(db, batch_id, {
         "status": "completed",
         "finished_at": datetime.now(timezone.utc),
@@ -158,6 +175,7 @@ def _run_portfolio_backtest_sync(
         "average_max_drawdown": round(avg_drawdown, 4),
         "best_symbol": best_symbol,
         "worst_symbol": worst_symbol,
+        "portfolio_equity_curve": portfolio_curve if portfolio_curve else None,
     })
 
     return {
@@ -230,6 +248,7 @@ async def submit_portfolio_backtest(
                 total_trades=r.get("total_trades"),
                 win_rate=r.get("win_rate"),
                 total_transaction_costs=r.get("total_transaction_costs"),
+                equity_curve=r.get("equity_curve"),
             )
 
         return PortfolioBacktestResponse(
@@ -247,6 +266,7 @@ async def submit_portfolio_backtest(
             best_symbol=portfolio.best_symbol,
             worst_symbol=portfolio.worst_symbol,
             runtime_seconds=portfolio.runtime_seconds,
+            portfolio_equity_curve=portfolio.portfolio_equity_curve,
             results_by_symbol=results_by_symbol,
             created_at=portfolio.created_at,
         )
@@ -304,6 +324,7 @@ async def get_portfolio_backtest(
             total_trades=sr.total_trades,
             win_rate=sr.win_rate,
             total_transaction_costs=sr.total_transaction_costs,
+            equity_curve=sr.equity_curve,
             error=sr.error,
         )
 
@@ -322,6 +343,7 @@ async def get_portfolio_backtest(
         best_symbol=portfolio.best_symbol,
         worst_symbol=portfolio.worst_symbol,
         runtime_seconds=portfolio.runtime_seconds,
+        portfolio_equity_curve=portfolio.portfolio_equity_curve,
         results_by_symbol=results_by_symbol,
         error=portfolio.error,
         created_at=portfolio.created_at,
@@ -459,20 +481,23 @@ async def submit_multi_strategy_backtest(
 
         config = BacktestConfig(**(request.config.model_dump() if request.config else {}))
 
-        from .backtest import (
-            calculate_returns,
-            calculate_sharpe_ratio,
-            calculate_max_drawdown,
-            calculate_total_return,
-            _signals_to_positions,
+        result = run_backtest_enhanced(
+            df=df,
+            strategy="combined",
+            params={},
+            config=config,
+            symbol=request.symbol,
         )
-
+        # Override equity curve with combined signals if strategy manager was used
         positions = _signals_to_positions(signals)
         equity_curve = calculate_returns(df, positions, config.initial_capital)
-
         sharpe = calculate_sharpe_ratio(equity_curve)
         max_dd = calculate_max_drawdown(equity_curve)
         total_ret = calculate_total_return(equity_curve)
+
+        # Use trade metrics from enhanced backtest
+        total_trades = result.total_trades
+        win_rate = result.win_rate
 
         timestamp = datetime.now(timezone.utc).strftime("%Y%m%d-%H%M%S")
         job_id = f"multistrat-{timestamp}"
@@ -486,8 +511,8 @@ async def submit_multi_strategy_backtest(
             sharpe=round(sharpe, 4),
             max_drawdown=round(max_dd, 4),
             total_return=round(total_ret, 4),
-            total_trades=0,
-            win_rate=0.0,
+            total_trades=total_trades,
+            win_rate=round(win_rate, 4),
             equity_curve=equity_curve.tolist(),
             created_at=datetime.now(timezone.utc),
         )
