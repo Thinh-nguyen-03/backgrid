@@ -5,6 +5,10 @@ from datetime import datetime, timezone
 from typing import Optional, Dict, Any, List
 from sqlalchemy import create_engine, Column, String, DateTime, Float, Text, JSON, Integer, ForeignKey
 from sqlalchemy.orm import declarative_base, sessionmaker, Session, relationship
+from dotenv import load_dotenv
+
+# Load environment variables from .env file
+load_dotenv()
 
 
 def _utcnow():
@@ -109,6 +113,8 @@ class PortfolioResult(Base):
     best_symbol = Column(String(16), nullable=True)
     worst_symbol = Column(String(16), nullable=True)
 
+    portfolio_equity_curve = Column(JSON, nullable=True)
+
     runtime_seconds = Column(Float, nullable=True)
     error = Column(Text, nullable=True)
 
@@ -143,6 +149,7 @@ class PortfolioResult(Base):
             "average_max_drawdown": self.average_max_drawdown,
             "best_symbol": self.best_symbol,
             "worst_symbol": self.worst_symbol,
+            "portfolio_equity_curve": self.portfolio_equity_curve,
             "runtime_seconds": self.runtime_seconds,
             "error": self.error,
             "created_at": self.created_at,
@@ -168,6 +175,7 @@ class SymbolResult(Base):
     total_trades = Column(Integer, nullable=True)
     win_rate = Column(Float, nullable=True)
     total_transaction_costs = Column(Float, nullable=True)
+    equity_curve = Column(JSON, nullable=True)
     runtime_seconds = Column(Float, nullable=True)
     error = Column(Text, nullable=True)
 
@@ -191,6 +199,7 @@ class SymbolResult(Base):
             "total_trades": self.total_trades,
             "win_rate": self.win_rate,
             "total_transaction_costs": self.total_transaction_costs,
+            "equity_curve": self.equity_curve,
             "runtime_seconds": self.runtime_seconds,
             "error": self.error,
             "created_at": self.created_at,
