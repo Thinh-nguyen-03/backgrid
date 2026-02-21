@@ -555,41 +555,20 @@ async def list_symbols(
         List of available symbols with metadata
     """
     if source == "yahoo":
-        default_symbols = [
-            SymbolInfo(symbol="AAPL", name="Apple Inc.", sector="Technology", is_active=True),
-            SymbolInfo(symbol="MSFT", name="Microsoft Corporation", sector="Technology", is_active=True),
-            SymbolInfo(symbol="GOOGL", name="Alphabet Inc.", sector="Technology", is_active=True),
-            SymbolInfo(symbol="AMZN", name="Amazon.com Inc.", sector="Consumer Cyclical", is_active=True),
-            SymbolInfo(symbol="NVDA", name="NVIDIA Corporation", sector="Technology", is_active=True),
-            SymbolInfo(symbol="META", name="Meta Platforms Inc.", sector="Technology", is_active=True),
-            SymbolInfo(symbol="TSLA", name="Tesla Inc.", sector="Consumer Cyclical", is_active=True),
-            SymbolInfo(symbol="BRK.B", name="Berkshire Hathaway", sector="Financial Services", is_active=True),
-            SymbolInfo(symbol="JPM", name="JPMorgan Chase & Co.", sector="Financial Services", is_active=True),
-            SymbolInfo(symbol="V", name="Visa Inc.", sector="Financial Services", is_active=True),
-            SymbolInfo(symbol="JNJ", name="Johnson & Johnson", sector="Healthcare", is_active=True),
-            SymbolInfo(symbol="UNH", name="UnitedHealth Group", sector="Healthcare", is_active=True),
-            SymbolInfo(symbol="HD", name="The Home Depot", sector="Consumer Cyclical", is_active=True),
-            SymbolInfo(symbol="PG", name="Procter & Gamble", sector="Consumer Defensive", is_active=True),
-            SymbolInfo(symbol="MA", name="Mastercard Inc.", sector="Financial Services", is_active=True),
-            SymbolInfo(symbol="DIS", name="Walt Disney Co.", sector="Communication Services", is_active=True),
-            SymbolInfo(symbol="PYPL", name="PayPal Holdings", sector="Financial Services", is_active=True),
-            SymbolInfo(symbol="NFLX", name="Netflix Inc.", sector="Communication Services", is_active=True),
-            SymbolInfo(symbol="ADBE", name="Adobe Inc.", sector="Technology", is_active=True),
-            SymbolInfo(symbol="CRM", name="Salesforce Inc.", sector="Technology", is_active=True),
-            SymbolInfo(symbol="XOM", name="Exxon Mobil", sector="Energy", is_active=True),
-            SymbolInfo(symbol="CVX", name="Chevron Corporation", sector="Energy", is_active=True),
-            SymbolInfo(symbol="INTC", name="Intel Corporation", sector="Technology", is_active=True),
-            SymbolInfo(symbol="CSCO", name="Cisco Systems", sector="Technology", is_active=True),
-            SymbolInfo(symbol="VZ", name="Verizon Communications", sector="Communication Services", is_active=True),
+        from .sp500 import get_sp500_symbols
+        all_raw = get_sp500_symbols()
+        all_symbols = [
+            SymbolInfo(symbol=s["symbol"], name=s["name"], sector=s["sector"], is_active=True)
+            for s in all_raw
         ]
 
         if sector:
-            default_symbols = [s for s in default_symbols if s.sector == sector]
+            all_symbols = [s for s in all_symbols if s.sector == sector]
 
-        symbols = default_symbols[offset:offset + limit]
+        symbols = all_symbols[offset:offset + limit]
 
         return SymbolListResponse(
-            total=len(default_symbols),
+            total=len(all_symbols),
             symbols=symbols,
             source="yahoo",
         )
@@ -629,3 +608,11 @@ async def list_symbols(
             status_code=400,
             detail=f"Unknown data source: {source}. Use 'yahoo' or 'postgres'"
         )
+
+
+@symbols_router.get("/sectors", response_model=List[str])
+async def list_sectors():
+    """Return distinct sector names from the S&P 500 symbol list."""
+    from .sp500 import get_sp500_symbols
+    sectors = sorted({s["sector"] for s in get_sp500_symbols()})
+    return sectors
