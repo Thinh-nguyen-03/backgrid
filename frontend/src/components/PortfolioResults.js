@@ -1,56 +1,12 @@
 import { fmtNum, fmtPct, colorClass } from '../services/utils.js';
 import { EquityCurveChart } from './EquityCurveChart.js';
+import { formatSystemLog } from '../services/logFormatter.js';
 
 export class PortfolioResults {
   constructor(container) {
     this.container = container;
-    this.onViewTrades = null; // callback
+    this.onViewTrades = null;
     this.equityCurveChart = null;
-  }
-
-  formatPortfolioLog(data) {
-    const sections = [
-      {
-        title: 'Portfolio Overview',
-        items: [
-          { key: 'batch_id', label: 'Batch ID', value: data.batch_id },
-          { key: 'symbols_requested', label: 'Symbols Requested', value: data.symbols_requested },
-          { key: 'symbols_completed', label: 'Symbols Completed', value: data.symbols_completed },
-          { key: 'symbols_failed', label: 'Symbols Failed', value: data.symbols_failed },
-          { key: 'status', label: 'Status', value: data.status },
-        ]
-      },
-      {
-        title: 'Aggregate Performance',
-        items: [
-          { key: 'average_sharpe', label: 'Average Sharpe', value: fmtNum(data.average_sharpe, 3) },
-          { key: 'average_return', label: 'Average Return', value: fmtPct(data.average_return) },
-          { key: 'average_max_drawdown', label: 'Average Drawdown', value: fmtPct(data.average_max_drawdown) },
-          { key: 'total_trades', label: 'Total Trades', value: data.total_trades || 0 },
-        ]
-      },
-      {
-        title: 'Top & Bottom',
-        items: [
-          { key: 'best_symbol', label: 'Best Symbol', value: data.best_symbol || 'N/A' },
-          { key: 'worst_symbol', label: 'Worst Symbol', value: data.worst_symbol || 'N/A' },
-        ]
-      }
-    ];
-
-    return sections.map(section => `
-      <div class="log-section">
-        <div class="log-section__header">${section.title}</div>
-        <div class="log-section__grid">
-          ${section.items.filter(item => data[item.key] != null).map(item => `
-            <div class="log-item">
-              <span class="log-item__label">${item.label}</span>
-              <span class="log-item__value">${item.value}</span>
-            </div>
-          `).join('')}
-        </div>
-      </div>
-    `).join('');
   }
 
   render(data) {
@@ -131,7 +87,7 @@ export class PortfolioResults {
       `;
     }
 
-    const logData = this.formatPortfolioLog(data);
+    const logText = formatSystemLog(data);
 
     this.container.innerHTML = `
       ${summary}
@@ -139,15 +95,15 @@ export class PortfolioResults {
       <div id="portfolioChartContainer"></div>
       ${tableHtml}
       <button type="button" id="viewTradesBtn" class="btn-sm" style="margin-top:1rem;">View Trade Ledger</button>
-      <details class="console-output" style="margin-top:1rem;">
-        <summary>
+      <div class="console-output console-output--collapsed" id="systemLog" style="margin-top:1rem;">
+        <div class="console-output__header" id="systemLogHeader">
           <span class="console-output__icon">▸</span>
           <span class="console-output__title">SYSTEM LOG</span>
-        </summary>
-        <div class="console-output__content">
-          ${logData}
         </div>
-      </details>
+        <div class="console-output__content">
+          <pre class="console-output__json">${logText}</pre>
+        </div>
+      </div>
     `;
 
     if (data.portfolio_equity_curve && data.portfolio_equity_curve.length > 0) {
@@ -159,6 +115,12 @@ export class PortfolioResults {
 
     this.container.querySelector('#viewTradesBtn').addEventListener('click', () => {
       if (this.onViewTrades) this.onViewTrades(data.batch_id);
+    });
+
+    const logHeader = this.container.querySelector('#systemLogHeader');
+    const logContainer = this.container.querySelector('#systemLog');
+    logHeader.addEventListener('click', () => {
+      logContainer.classList.toggle('console-output--collapsed');
     });
   }
 }
