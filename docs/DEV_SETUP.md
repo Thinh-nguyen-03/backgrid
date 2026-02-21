@@ -4,6 +4,7 @@
 
 ## Requirements
 - Python 3.13+ (tested on 3.13.3)
+- Node.js 18+ and npm (for frontend build)
 - Docker, docker compose (optional for PostgreSQL)
 - git
 - Redis (optional, for Celery workers)
@@ -15,6 +16,9 @@ git clone https://github.com/you/backgrid && cd backgrid
 python -m venv .venv && source .venv/bin/activate
 pip install -r requirements.txt
 cp .env.example .env
+
+# Build frontend
+cd frontend && npm install && npm run build && cd ..
 ```
 
 ## Running Tests
@@ -62,6 +66,23 @@ celery -A src.worker worker --loglevel=info --pool=threads
 # Access API docs
 open http://localhost:8000/docs
 ```
+
+## Frontend Development
+
+```bash
+# Dev mode with hot reload (proxies API to :8000)
+cd frontend && npm run dev
+# Open http://localhost:5173
+
+# Production build
+cd frontend && npm run build
+# Output: frontend/dist/ (served by FastAPI at http://localhost:8000)
+
+# Preview production build
+cd frontend && npm run preview
+```
+
+**Dev workflow:** Run `uvicorn` on port 8000 in one terminal, `npm run dev` in another. The Vite dev server at `:5173` proxies `/api` requests to FastAPI.
 
 ## Local Services (Docker)
 

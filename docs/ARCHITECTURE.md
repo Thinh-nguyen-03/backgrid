@@ -12,29 +12,51 @@
 
 ```mermaid
 graph TD
-    A[Client / curl] -->|POST /jobs| B[FastAPI API]
+    UI[Web UI - Vite + Vanilla JS] -->|fetch /api/v1| B[FastAPI API]
+    A[Client / curl] -->|POST /jobs| B
     B -->|Synchronous| C[Backtest Engine]
     C -->|fetch_ohlcv| D[yfinance]
     D -->|OHLCV data| C
-    C -->|run_backtest| E[MA Crossover Strategy]
+    C -->|run_backtest| E[Strategy Layer]
     E -->|signals| F[Metrics Calculator]
-    F -->|results| G[In-Memory Dict]
+    F -->|results| G[Database / In-Memory]
     G -->|response| B
+    B -->|JSON| UI
     B -->|JSON| A
 ```
 
 ### Components
 
+#### Frontend Layer ([frontend/](../frontend/))
+- **Build tool**: Vite with ES module support, HMR, API proxy to FastAPI
+- **Architecture**: Vanilla JS class-based components (no framework)
+- **Components** (10 modules in `frontend/src/components/`):
+  - `Header.js` - App header with version badge
+  - `StrategySelector.js` - MA/RSI/Combined strategy selection with dynamic param forms
+  - `ExecutionConfig.js` - Position sizing (fixed/ATR), transaction cost controls
+  - `PortfolioMode.js` - Single/Portfolio toggle, symbol input, date pickers
+  - `ResultsDisplay.js` - KPI cards for single-symbol results
+  - `EquityCurveChart.js` - Chart.js wrapper with linear/log scale toggle
+  - `PortfolioResults.js` - Summary card, per-symbol results table
+  - `TradeLedgerModal.js` - Paginated trade table with filters and CSV export
+  - `SymbolSelector.js` - Modal for browsing symbols by sector
+  - `JobHistory.js` - localStorage-backed recent backtests panel
+- **Services**: API client (`api.js`), localStorage abstraction (`storage.js`), formatters (`utils.js`)
+- **State**: Lightweight `AppState` with key-based subscriptions
+- **CSS**: Modular BEM methodology, brutalist industrial pop aesthetic (yellow/cyan accents, hard shadows, monospace fonts)
+- **Serving**: Production build in `frontend/dist/` served by FastAPI via `app.mount()` for static assets and `FileResponse` for SPA
+
 #### API Layer ([src/api.py](../src/api.py))
 - **FastAPI application** with 8 endpoints (3 legacy + 5 new)
 - **Health check**: `GET /api/v1/health`
-- **Submit job**: `POST /api/v1/jobs` (synchronous, returns immediately)
+- **Submit job**: `POST /api/v1/jobs` (synchronous, supports optional `config` for execution parameters)
 - **Get job**: `GET /api/v1/jobs/{job_id}`
 - **Portfolio backtest**: `POST /api/v1/backtest/portfolio`
 - **Get portfolio**: `GET /api/v1/backtest/portfolio/{batch_id}`
 - **Get trades**: `GET /api/v1/backtest/portfolio/{batch_id}/trades`
 - **Multi-strategy**: `POST /api/v1/backtest/multi-strategy`
 - **List symbols**: `GET /api/v1/symbols`
+- **Static files**: `app.mount("/assets", StaticFiles(...))` for frontend assets
 - **Storage**: PostgreSQL/SQLite for portfolio results, in-memory for single jobs
 - **Error handling**: HTTP 400/404/422/500 with clear messages
 - **Logging**: INFO level for all requests
@@ -98,7 +120,7 @@ graph TD
 
 #### Models ([src/models.py](../src/models.py))
 - **Pydantic models** for request/response validation
-- **BacktestRequest**: Validates symbol, strategy, params, dates
+- **BacktestRequest**: Validates symbol, strategy, params, dates, optional `config` for execution parameters
 - **BacktestResponse**: Structures results with metrics
 - **PortfolioBacktestRequest**: Multi-symbol batch request
 - **PortfolioBacktestResponse**: Aggregated portfolio metrics

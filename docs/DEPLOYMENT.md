@@ -1,6 +1,6 @@
 # Deployment Guide
 
-**Current Phase**: 2 Complete (Week 7 - Testing & Validation)
+**Current Phase**: 2 Complete (Week 8 - UI Modernization)
 
 **Status**: Production Ready (650 tests passing)
 
@@ -16,10 +16,13 @@ SQLite-based development mode (no infrastructure needed).
 # Install dependencies
 pip install -r requirements.txt
 
+# Build frontend
+cd frontend && npm install && npm run build && cd ..
+
 # Run tests
 pytest tests/  # 650 tests, ~10s
 
-# Start API
+# Start API (serves UI at http://localhost:8000)
 uvicorn src.api:app --reload --port 8000
 
 # Start Celery worker (optional)
@@ -29,6 +32,8 @@ celery -A src.worker worker --loglevel=info --pool=threads
 ---
 
 ## Production Deployment Options
+
+**Note:** Before deploying, ensure the frontend is built: `cd frontend && npm install && npm run build && cd ..`. The Dockerfile should include a multi-stage build with Node.js to build the frontend assets.
 
 ### Option 1: Docker Compose (Recommended for Phase 2)
 

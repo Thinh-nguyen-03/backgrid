@@ -773,6 +773,57 @@ Performance: Single symbol <500ms, signal calculation <10ms
 
 ---
 
+## Week 8: UI Modernization (Completed: 2026-02-14)
+
+### Decision: Vite + Vanilla JS Frontend with Brutalist Design
+
+**Date**: 2026-02-14
+
+**Problem**: The Phase 1 UI was a single inline HTML template in `src/ui.py` (~30 lines). It only supported MA crossover strategy on a single symbol. All Phase 2 backend features (RSI, multi-strategy, portfolio batches, execution config, trade ledger) had no UI exposure.
+
+**Alternatives Considered**:
+1. **React/Vue/Angular**: Full framework with component ecosystem, but adds significant dependency weight and build complexity for a learning project
+2. **HTMX + Jinja2**: Server-rendered approach, minimal JS, but limits interactivity for charts, modals, and real-time updates
+3. **Vanilla JS + Vite**: No framework overhead, class-based components, fast build, full control over design
+
+**Decision**: Vanilla JS with Vite build system. No framework dependency keeps the project focused on backend learning while providing a functional, modern frontend.
+
+**What Was Built**:
+
+| Category | Files | Details |
+|----------|-------|---------|
+| Components | 10 JS modules | Header, StrategySelector, ExecutionConfig, PortfolioMode, ResultsDisplay, EquityCurveChart, PortfolioResults, TradeLedgerModal, SymbolSelector, JobHistory |
+| Styles | 8 CSS files | BEM methodology, brutalist aesthetic (yellow/cyan, hard shadows, monospace) |
+| Services | 3 JS modules | API client, localStorage abstraction, utility formatters |
+| State | 1 JS module | Lightweight key-based subscription state manager |
+| Config | 1 JS module | Constants, strategy labels, defaults |
+| Build | Vite | ES modules, HMR dev server, API proxy, production bundle |
+
+**Backend Changes Required**:
+1. Added `config: Optional[BacktestConfigModel]` to `BacktestRequest` in `src/models.py`
+2. Updated `submit_job()` in `src/api.py` to use `run_backtest_enhanced()` when config provided
+3. Fixed multi-strategy endpoint trade metrics (were hardcoded to 0) in `src/api_portfolio.py`
+4. Rewrote `src/ui.py` to serve SPA from `frontend/dist/`
+5. Used `app.mount()` for static files (not `router.mount()`, which doesn't work for `StaticFiles`)
+
+**Build Output**:
+- Production bundle: 298KB JS + 31KB CSS
+- Build time: <3 seconds
+- All 650 existing tests still passing
+
+**Key Technical Lessons**:
+- FastAPI's `StaticFiles` mount only works on the `FastAPI` app instance, not on `APIRouter`
+- Vite with `root: 'src'` auto-discovers `index.html` in the root; explicit `rollupOptions.input` caused path resolution failures
+- Pydantic forward references need `model_rebuild()` when model A references model B defined later in the file
+
+**Tradeoffs**:
+- Node.js now required for development (adds a prerequisite)
+- No TypeScript (acceptable for project scope)
+- No framework means manual DOM management (acceptable for 10 components)
+- No SSR or SEO (not needed for a backtesting tool)
+
+---
+
 ## Template for Future Decisions
 
 Every major technology addition must use this template:
