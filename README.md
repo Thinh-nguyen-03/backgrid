@@ -8,87 +8,30 @@
 
 ---
 
-## Deployment Modes
-
-Backgrid supports two deployment configurations:
-
-**Local Development (SQLite)**
-```bash
-# Uses SQLite database (backgrid.db)
-# Configured via .env: DATABASE_URL=sqlite:///./backgrid.db
-pip install -r requirements.txt
-uvicorn src.api:app --reload --port 8000
-```
-
-**Docker Deployment (PostgreSQL)**
-```bash
-# Uses PostgreSQL + Redis + Celery workers
-# Configured via docker-compose.yml
-docker-compose up
-```
-
-Choose SQLite for development/testing or PostgreSQL for production-scale deployment.
-
----
-
 ## Quick Start
 
 ```bash
-# Clone and setup
+# Clone repository
 git clone https://github.com/Thinh-nguyen-03/backgrid
 cd backgrid
+
+# Install dependencies
 pip install -r requirements.txt
 
-# Start the API
-python src/api.py
-```
-
-### Web UI (Fastest Way)
-
-```bash
-# Build frontend (one-time)
+# Build frontend
 cd frontend && npm install && npm run build && cd ..
 
-# Start API server
+# Start server
 uvicorn src.api:app --reload --port 8000
 ```
 
 Open browser to http://localhost:8000
-- Select strategy (MA Crossover, RSI, Combined)
-- Configure execution parameters (position sizing, transaction costs)
-- Run single-symbol or portfolio batch backtests
-- View equity curves, trade ledger, and job history
 
-### API Usage (Alternative)
-
-```bash
-# MA Crossover Strategy
-curl -X POST http://localhost:8000/api/v1/jobs \
-  -H "Content-Type: application/json" \
-  -d '{"symbol":"AAPL","strategy":"ma_crossover","params":{"fast":10,"slow":30},"start":"2023-01-01","end":"2023-12-31"}'
-
-# RSI Strategy
-curl -X POST http://localhost:8000/api/v1/jobs \
-  -H "Content-Type: application/json" \
-  -d '{"symbol":"AAPL","strategy":"rsi","params":{"rsi_period":14,"oversold_threshold":30,"overbought_threshold":55},"start":"2023-01-01","end":"2023-12-31"}'
-```
-
-**Example Response:**
-```json
-{
-  "job_id": "manual-20251109-014101",
-  "status": "completed",
-  "sharpe": 0.7739,
-  "max_drawdown": -0.1684,
-  "total_return": 0.1111,
-  "equity_curve": [10000, 10050, ...],
-  "runtime_seconds": 2.66
-}
-```
+**For detailed setup, deployment, and configuration:** See [docs/SETUP.md](docs/SETUP.md)
 
 ---
 
-## Phase 1 - What's Built
+## Features
 
 ### Architecture
 ```mermaid
@@ -146,36 +89,18 @@ graph TD
 
 ## Testing
 
-### Run All Unit Tests
 ```bash
+# Run all tests (650 tests, ~10 seconds)
 pytest tests/ -v
-# 660 tests, ~10 seconds
+
+# Run specific test file
+pytest tests/test_rsi_strategy.py -v
+
+# With coverage
+pytest tests/ --cov=src --cov-report=html
 ```
 
-### Run Smoke Tests
-```bash
-# Start API first: python src/api.py
-python scripts/smoke_test.py
-# Tests: health check, job submission, retrieval, error handling
-```
-
-### Manual Testing
-```bash
-# Build and serve Web UI
-cd frontend && npm install && npm run build && cd ..
-uvicorn src.api:app --reload --port 8000
-# Open http://localhost:8000
-
-# Frontend dev mode (hot reload)
-cd frontend && npm run dev
-# Open http://localhost:5173 (proxies API to :8000)
-
-# Health check
-curl http://localhost:8000/api/v1/health
-
-# Interactive API docs
-open http://localhost:8000/docs
-```
+**For detailed testing and development workflows:** See [docs/SETUP.md](docs/SETUP.md)
 
 ---
 
@@ -232,37 +157,16 @@ backgrid/
 
 ## API Documentation
 
-### Endpoints
+**Interactive API Docs**: http://localhost:8000/docs
 
-**Health Check**
-```bash
-GET /api/v1/health
-# Returns: {"status": "ok", "phase": 2, "timestamp": "..."}
-```
+**Key Endpoints:**
+- `GET /api/v1/health` - Health check
+- `POST /api/v1/jobs` - Submit single-symbol backtest
+- `POST /api/v1/backtest/portfolio` - Portfolio backtest
+- `POST /api/v1/backtest/multi-strategy` - Multi-strategy combination
+- `GET /api/v1/symbols` - List S&P 500 symbols by sector
 
-**Submit Backtest Job**
-```bash
-POST /api/v1/jobs
-Content-Type: application/json
-
-{
-  "symbol": "AAPL",
-  "strategy": "ma_crossover",
-  "params": {"fast": 10, "slow": 30},
-  "start": "2023-01-01",
-  "end": "2023-12-31"
-}
-
-# Returns: Job results with metrics and equity curve
-```
-
-**Get Job Results**
-```bash
-GET /api/v1/jobs/{job_id}
-# Returns: Same as POST response
-```
-
-**Interactive Docs**: http://localhost:8000/docs
+**For complete API documentation:** See [docs/API.md](docs/API.md)
 
 ---
 

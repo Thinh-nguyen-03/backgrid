@@ -168,6 +168,7 @@ CREATE TABLE portfolio_results (
     average_max_drawdown REAL,
     best_symbol VARCHAR(16),
     worst_symbol VARCHAR(16),
+    portfolio_equity_curve JSON,
     runtime_seconds REAL,
     error TEXT,
     created_at TIMESTAMP NOT NULL,
@@ -190,6 +191,7 @@ CREATE TABLE symbol_results (
     total_trades INTEGER,
     win_rate REAL,
     total_transaction_costs REAL,
+    equity_curve JSON,
     runtime_seconds REAL,
     error TEXT,
     created_at TIMESTAMP NOT NULL
@@ -229,7 +231,9 @@ CREATE TABLE trade_ledger (
 ### Alembic Migrations
 
 Migration managed via Alembic in `migrations/`:
+- `cc616f59a219_create_jobs_and_results_tables.py`: Creates initial `jobs` and `results` tables
 - `add_portfolio_tables_week6.py`: Creates `portfolio_results`, `symbol_results`, `trade_ledger`
+- `add_equity_curves_to_portfolio.py`: Adds `equity_curve` and `portfolio_equity_curve` JSON columns
 - Default database URL for migrations: SQLite (`sqlite:///backgrid.db`)
 
 ### Future Tables (Phase 3)

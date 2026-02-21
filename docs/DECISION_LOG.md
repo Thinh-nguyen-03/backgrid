@@ -824,6 +824,43 @@ Performance: Single symbol <500ms, signal calculation <10ms
 
 ---
 
+## Week 8: Equity Curve Storage (Completed: 2026-02-20)
+
+### Decision: Add JSON Columns for Portfolio and Symbol Equity Curves
+
+**Date**: 2026-02-20
+
+**Problem**: Portfolio backtests were storing aggregated metrics (average Sharpe, returns, drawdown) but not the portfolio equity curve itself. Individual symbol equity curves were also not persisted. This prevented visualization of portfolio-level performance over time and comparison of individual symbol trajectories.
+
+**Approach**: Add JSON columns to existing database tables rather than creating new time-series tables.
+
+**Implementation**:
+1. Added `portfolio_equity_curve` JSON column to `PortfolioResult` model
+2. Added `equity_curve` JSON column to `SymbolResult` model
+3. Updated SQLAlchemy models in `src/db.py`
+4. Updated schema documentation in `docs/DATA_MODEL.md`
+
+**Schema Changes**:
+```sql
+ALTER TABLE portfolio_results ADD COLUMN portfolio_equity_curve JSON;
+ALTER TABLE symbol_results ADD COLUMN equity_curve JSON;
+```
+
+**Format**: JSON arrays of equity values (e.g., `[10000, 10050, 10100, ...]`)
+
+**Impact**:
+- Enables portfolio equity curve visualization in UI
+- Supports comparison of individual symbol performance curves
+- No backend logic changes required (columns nullable, backward compatible)
+- Works identically on SQLite and PostgreSQL
+
+**Tradeoffs**:
+- Large arrays for multi-year backtests (252+ data points per year)
+- JSON columns not optimized for time-series queries (acceptable for current scale)
+- Future: Consider TimescaleDB if query performance becomes bottleneck
+
+---
+
 ## Template for Future Decisions
 
 Every major technology addition must use this template:
