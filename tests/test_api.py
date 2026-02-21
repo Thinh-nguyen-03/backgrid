@@ -49,7 +49,7 @@ class TestHealthEndpoint:
         assert response.status_code == 200
         data = response.json()
         assert data["status"] == "ok"
-        assert data["phase"] == 1
+        assert data["phase"] == 2
         assert "timestamp" in data
 
     def test_health_check_returns_json(self, client):
