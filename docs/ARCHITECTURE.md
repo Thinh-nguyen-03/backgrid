@@ -47,7 +47,7 @@ graph TD
 - **Serving**: Production build in `frontend/dist/` served by FastAPI via `app.mount()` for static assets and `FileResponse` for SPA
 
 #### API Layer ([src/api.py](../src/api.py))
-- **FastAPI application** with 8 endpoints (3 legacy + 5 new)
+- **FastAPI application** with 9 endpoints (3 legacy + 6 new)
 - **Health check**: `GET /api/v1/health`
 - **Submit job**: `POST /api/v1/jobs` (synchronous, supports optional `config` for execution parameters)
 - **Get job**: `GET /api/v1/jobs/{job_id}`
@@ -56,12 +56,14 @@ graph TD
 - **Get trades**: `GET /api/v1/backtest/portfolio/{batch_id}/trades`
 - **Multi-strategy**: `POST /api/v1/backtest/multi-strategy`
 - **List symbols**: `GET /api/v1/symbols`
+- **List sectors**: `GET /api/v1/sectors`
 - **Static files**: `app.mount("/assets", StaticFiles(...))` for frontend assets
 - **Storage**: PostgreSQL/SQLite for portfolio results, in-memory for single jobs
 - **Error handling**: HTTP 400/404/422/500 with clear messages
 - **Logging**: INFO level for all requests
 
 #### Data Layer ([src/data/](../src/data/))
+- **S&P 500 Module** ([src/sp500.py](../src/sp500.py)): Fetches 503 S&P 500 symbols from us500.com (primary) or Wikipedia (fallback), organizes by 11 GICS sectors, 7-day in-memory cache
 - **BaseDataLoader**: Abstract interface for all data sources
 - **YahooDataLoader**: Yahoo Finance implementation with caching
 - **PostgresDataLoader**: RapidTrader database integration

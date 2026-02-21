@@ -101,12 +101,13 @@ graph TD
 
 ### Features Implemented
 - **Modern Web UI** (Vite + vanilla JS, Chart.js equity curves, brutalist design)
-- **8 REST API endpoints** (health, submit job, get job, portfolio, trades, multi-strategy, symbols)
+- **9 REST API endpoints** (health, submit job, get job, portfolio, trades, multi-strategy, symbols, sectors, portfolio trades)
+- **Symbol browsing**: Browse 503 S&P 500 symbols organized by 11 GICS sectors with collapsible groups and search
 - **Multiple trading strategies**:
   - MA Crossover with configurable periods
   - RSI mean reversion with 2-of-3 confirmation logic
   - Multi-strategy combination (OR, AND, PRIORITY, WEIGHTED)
-- **Pluggable data loaders**: Yahoo Finance + PostgreSQL (RapidTrader)
+- **Pluggable data loaders**: Yahoo Finance + PostgreSQL (RapidTrader) + S&P 500 (us500.com with Wikipedia fallback)
 - **ATR-based position sizing** with volatility-adjusted risk
 - **Transaction cost modeling**: commission, spread, slippage
 - **Risk management**:
@@ -118,14 +119,14 @@ graph TD
 - **Performance metrics**: Sharpe ratio, max drawdown, total return, win rate
 - **Full equity curves** and trade ledger
 - **Comprehensive error handling** and validation
-- **650 passing unit tests** across all modules
+- **660 passing unit tests** across all modules
 - **Automated smoke tests** for end-to-end verification
 
 ### Performance (Measured)
 - **Latency**: 2-3 seconds per backtest
 - **Throughput**: ~20 jobs/minute (synchronous)
 - **Data fetched**: 250 trading days in <3s
-- **Test coverage**: 650 tests across all components (>95% on critical paths)
+- **Test coverage**: 660 tests across all components (>95% on critical paths)
 - **Signal calculation**: <10ms for 252 trading days
 - **ATR calculation**: <5ms for 252 trading days
 - **Position sizing**: <1ms per calculation
@@ -136,9 +137,10 @@ graph TD
 - **Chart.js** - Equity curve visualization
 - **pandas** - Data manipulation and analysis
 - **yfinance** - Market data provider (Yahoo Finance)
+- **BeautifulSoup4** - HTML parsing for S&P 500 symbol data
 - **SQLAlchemy + Alembic** - Database ORM and migrations (SQLite or PostgreSQL)
 - **Celery + Redis** - Async task processing (Docker mode)
-- **pytest** - Testing framework (650 tests)
+- **pytest** - Testing framework (660 tests)
 
 ---
 
@@ -147,7 +149,7 @@ graph TD
 ### Run All Unit Tests
 ```bash
 pytest tests/ -v
-# 650 tests, ~10 seconds
+# 660 tests, ~10 seconds
 ```
 
 ### Run Smoke Tests
@@ -201,6 +203,7 @@ backgrid/
 │   ├── db.py               # SQLAlchemy database models
 │   ├── ui.py               # SPA serving from frontend/dist/
 │   ├── worker.py           # Celery worker tasks
+│   ├── sp500.py            # S&P 500 symbol data (us500.com + Wikipedia fallback)
 │   ├── strategies/         # Pluggable strategy framework
 │   ├── data/               # Pluggable data loaders
 │   ├── position_sizing/    # Volatility-adjusted sizing
@@ -219,7 +222,7 @@ backgrid/
 │   ├── dist/                   # Production build output
 │   ├── package.json
 │   └── vite.config.js
-├── tests/                  # Test suite (650 tests)
+├── tests/                  # Test suite (660 tests)
 ├── docs/                   # Design docs and architecture
 ├── alembic/                # Database migrations
 └── requirements.txt
