@@ -1,0 +1,32 @@
+.loading-pulse {
+  animation: pulse 1.5s ease-in-out infinite;
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.5; }
+}
+
+.loading-bar {
+  height: 4px;
+  background: var(--color-ink);
+  position: relative;
+  overflow: hidden;
+  border: 1px solid var(--color-ink);
+}
+
+.loading-bar::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -30%;
+  width: 30%;
+  height: 100%;
+  background: var(--color-accent-cyan);
+  animation: slide 1.2s ease-in-out infinite;
+}
+
+@keyframes slide {
+  0% { left: -30%; }
+  100% { left: 100%; }
+}

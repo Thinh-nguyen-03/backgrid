@@ -1,0 +1,39 @@
+:root {
+  --bg-app: #E2E8F0;
+  --bg-panel: #FFFFFF;
+  --color-ink: #020617;
+  --color-text-sub: #475569;
+  --color-accent-pop: #FDE047;
+  --color-accent-secondary: #10B981;
+  --color-success: #16A34A;
+  --color-error: #DC2626;
+  --border-thick: 3px solid var(--color-ink);
+  --shadow-hard: 6px 6px 0px var(--color-ink);
+  --sidebar-width: 500px;
+  --font-head: 'Space Grotesk', sans-serif;
+  --font-ui: 'Inter', sans-serif;
+  --font-mono: 'JetBrains Mono', monospace;
+}
+
+body.dark-mode {
+  --bg-app: #0f0f0f;
+  --bg-panel: #1f1f1f;
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+  background-color: var(--bg-app);
+  color: var(--color-ink);
+  font-family: var(--font-ui);
+  height: 100vh;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  background-image: radial-gradient(var(--color-text-sub) 1.5px, transparent 1.5px);
+  background-size: 24px 24px;
+}
+
+.text-green { color: var(--color-success); }
+.text-red { color: var(--color-error); }
+.hidden { display: none !important; }

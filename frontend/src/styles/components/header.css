@@ -1,0 +1,118 @@
+.app-header {
+  background: var(--bg-panel);
+  border-bottom: var(--border-thick);
+  padding: 0 1.5rem;
+  height: 80px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  z-index: 20;
+  position: relative;
+}
+
+body.dark-mode .app-header {
+  border-bottom-color: #ffffff;
+}
+
+.header-left {
+  display: flex;
+  align-items: center;
+  gap: 1.5rem;
+}
+
+.menu-toggle {
+  background: transparent;
+  border: 2px solid transparent;
+  font-size: 2rem;
+  cursor: pointer;
+  color: var(--color-ink);
+  padding: 0.5rem;
+  transition: transform 0.1s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+body.dark-mode .menu-toggle {
+  color: #ffffff;
+}
+
+body.dark-mode .menu-toggle:hover {
+  border-color: #ffffff;
+  box-shadow: 4px 4px 0px #ffffff;
+}
+
+.menu-toggle:hover {
+  background: var(--color-accent-pop);
+  border: 2px solid var(--color-ink);
+  box-shadow: 4px 4px 0px var(--color-ink);
+}
+
+.menu-toggle:active {
+  transform: translate(2px, 2px);
+  box-shadow: none;
+}
+
+.brand-block {
+  display: flex;
+  border: var(--border-thick);
+  box-shadow: var(--shadow-hard);
+}
+
+.brand-name {
+  background: var(--color-accent-pop);
+  padding: 0.5rem 1.2rem;
+  font-family: var(--font-head);
+  font-weight: 800;
+  font-size: 1.5rem;
+  text-transform: uppercase;
+  color: var(--color-ink);
+  border-right: var(--border-thick);
+}
+
+.brand-version {
+  background: var(--color-ink);
+  color: var(--color-accent-pop);
+  padding: 0.5rem 1rem;
+  font-family: var(--font-mono);
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+}
+
+.header-right {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+.btn-help,
+.btn-theme {
+  background: var(--color-accent-secondary);
+  color: var(--color-ink);
+  border: var(--border-thick);
+  font-family: var(--font-head);
+  font-size: 1.2rem;
+  font-weight: 800;
+  width: 40px;
+  height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  box-shadow: 4px 4px 0px var(--color-ink);
+  transition: all 0.1s;
+}
+
+.btn-help:hover,
+.btn-theme:hover {
+  transform: translate(-2px, -2px);
+  box-shadow: 6px 6px 0px var(--color-ink);
+  background: var(--color-accent-pop);
+}
+
+.btn-help:active,
+.btn-theme:active {
+  transform: translate(2px, 2px);
+  box-shadow: none;
+}

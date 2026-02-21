@@ -1,0 +1,121 @@
+.data-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-family: var(--font-mono);
+  font-size: 0.8rem;
+  background: var(--bg-panel);
+  border: var(--border-thick);
+  box-shadow: var(--shadow-hard);
+}
+
+.data-table thead {
+  background: var(--color-ink);
+  color: var(--color-accent-pop);
+}
+
+.data-table th {
+  padding: 0.8rem;
+  text-align: left;
+  font-family: var(--font-head);
+  font-size: 0.75rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  cursor: pointer;
+  user-select: none;
+  white-space: nowrap;
+}
+
+.data-table th:hover {
+  color: var(--color-accent-cyan);
+}
+
+.data-table td {
+  padding: 0.6rem 0.8rem;
+  border-bottom: 1px solid #E2E8F0;
+  white-space: nowrap;
+}
+
+.data-table tr:hover td {
+  background: #F1F5F9;
+}
+
+.data-table .text-right {
+  text-align: right;
+}
+
+.portfolio-summary {
+  background: var(--color-accent-pop);
+  border: var(--border-thick);
+  box-shadow: 8px 8px 0px var(--color-ink);
+  padding: 2rem;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 1.5rem;
+}
+
+.portfolio-summary__item {
+  display: flex;
+  flex-direction: column;
+}
+
+.portfolio-summary__label {
+  font-family: var(--font-head);
+  font-size: 0.75rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  color: var(--color-ink);
+  margin-bottom: 0.3rem;
+}
+
+.portfolio-summary__value {
+  font-family: var(--font-mono);
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: var(--color-ink);
+}
+
+.failed-symbols {
+  background: var(--color-error);
+  color: #fff;
+  border: var(--border-thick);
+  box-shadow: var(--shadow-hard);
+  padding: 1.5rem;
+}
+
+.failed-symbols__title {
+  font-family: var(--font-head);
+  font-weight: 800;
+  text-transform: uppercase;
+  margin-bottom: 0.5rem;
+}
+
+.failed-symbols__list {
+  font-family: var(--font-mono);
+  font-size: 0.85rem;
+}
+
+.pagination {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  margin-top: 1rem;
+  font-family: var(--font-mono);
+  font-size: 0.8rem;
+}
+
+.pagination button {
+  background: var(--color-ink);
+  color: #fff;
+  border: 2px solid var(--color-ink);
+  padding: 0.3rem 0.8rem;
+  font-family: var(--font-head);
+  font-size: 0.7rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  cursor: pointer;
+}
+
+.pagination button:disabled {
+  opacity: 0.3;
+  cursor: not-allowed;
+}
