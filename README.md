@@ -1,10 +1,33 @@
 # Backgrid - Backtesting Engine
 
-**Status**: **Phase 2 - Week 4 COMPLETE** (Risk Management)
+**Status**: **Phase 2 - Week 8 COMPLETE** (UI Modernization)
 
 **Goal**: Build a real backtesting platform from scratch, evolving from monolith to distributed system
 
 **Repository**: https://github.com/Thinh-nguyen-03/backgrid
+
+---
+
+## Deployment Modes
+
+Backgrid supports two deployment configurations:
+
+**Local Development (SQLite)**
+```bash
+# Uses SQLite database (backgrid.db)
+# Configured via .env: DATABASE_URL=sqlite:///./backgrid.db
+pip install -r requirements.txt
+uvicorn src.api:app --reload --port 8000
+```
+
+**Docker Deployment (PostgreSQL)**
+```bash
+# Uses PostgreSQL + Redis + Celery workers
+# Configured via docker-compose.yml
+docker-compose up
+```
+
+Choose SQLite for development/testing or PostgreSQL for production-scale deployment.
 
 ---
 
@@ -21,10 +44,20 @@ python src/api.py
 ```
 
 ### Web UI (Fastest Way)
+
+```bash
+# Build frontend (one-time)
+cd frontend && npm install && npm run build && cd ..
+
+# Start API server
+uvicorn src.api:app --reload --port 8000
+```
+
 Open browser to http://localhost:8000
-- Fill in symbol, dates, MA parameters
-- Click Submit → See JSON results instantly
-- No build step, no npm, no framework
+- Select strategy (MA Crossover, RSI, Combined)
+- Configure execution parameters (position sizing, transaction costs)
+- Run single-symbol or portfolio batch backtests
+- View equity curves, trade ledger, and job history
 
 ### API Usage (Alternative)
 
@@ -67,8 +100,8 @@ graph TD
 ```
 
 ### Features Implemented
-- **Simple HTML UI** (single file, zero dependencies, <30 lines)
-- **3 REST API endpoints** (health, submit job, get job)
+- **Modern Web UI** (Vite + vanilla JS, Chart.js equity curves, brutalist design)
+- **8 REST API endpoints** (health, submit job, get job, portfolio, trades, multi-strategy, symbols)
 - **Multiple trading strategies**:
   - MA Crossover with configurable periods
   - RSI mean reversion with 2-of-3 confirmation logic
@@ -85,24 +118,27 @@ graph TD
 - **Performance metrics**: Sharpe ratio, max drawdown, total return, win rate
 - **Full equity curves** and trade ledger
 - **Comprehensive error handling** and validation
-- **256 passing unit tests** across all modules
+- **650 passing unit tests** across all modules
 - **Automated smoke tests** for end-to-end verification
 
 ### Performance (Measured)
 - **Latency**: 2-3 seconds per backtest
 - **Throughput**: ~20 jobs/minute (synchronous)
 - **Data fetched**: 250 trading days in <3s
-- **Test coverage**: 256 tests across all components (>95% on critical paths)
+- **Test coverage**: 650 tests across all components (>95% on critical paths)
 - **Signal calculation**: <10ms for 252 trading days
 - **ATR calculation**: <5ms for 252 trading days
 - **Position sizing**: <1ms per calculation
 
 ### Tech Stack
 - **FastAPI** - Modern async web framework
+- **Vite + Vanilla JS** - Frontend build tooling and component architecture
+- **Chart.js** - Equity curve visualization
 - **pandas** - Data manipulation and analysis
 - **yfinance** - Market data provider (Yahoo Finance)
-- **pytest** - Testing framework
-- **In-memory storage** - Results stored during runtime
+- **SQLAlchemy + Alembic** - Database ORM and migrations (SQLite or PostgreSQL)
+- **Celery + Redis** - Async task processing (Docker mode)
+- **pytest** - Testing framework (650 tests)
 
 ---
 
@@ -111,7 +147,7 @@ graph TD
 ### Run All Unit Tests
 ```bash
 pytest tests/ -v
-# 256 tests, ~4 seconds
+# 650 tests, ~10 seconds
 ```
 
 ### Run Smoke Tests
@@ -123,8 +159,14 @@ python scripts/smoke_test.py
 
 ### Manual Testing
 ```bash
-# Web UI (simplest)
-open http://localhost:8000
+# Build and serve Web UI
+cd frontend && npm install && npm run build && cd ..
+uvicorn src.api:app --reload --port 8000
+# Open http://localhost:8000
+
+# Frontend dev mode (hot reload)
+cd frontend && npm run dev
+# Open http://localhost:5173 (proxies API to :8000)
 
 # Health check
 curl http://localhost:8000/api/v1/health
@@ -137,11 +179,11 @@ open http://localhost:8000/docs
 
 ## Known Limitations (Current Phase)
 
-- **Synchronous execution** - Jobs block the API (no async workers yet)
-- **In-memory storage** - Results lost when server restarts
+- **Synchronous portfolio execution** - Large batch backtests may be slow without Celery workers
+- **In-memory storage for single jobs** - Legacy single-symbol results not persisted (use portfolio API for persistence)
 - **No authentication** - Open API (single-user mode)
-- **Basic UI** - Simple HTML form (no charts or advanced visualization)
-- **Single-symbol backtests** - Portfolio aggregation across 500+ symbols planned for Week 5
+- **Frontend requires Node.js** - `npm install` and `npm run build` needed for the Web UI
+- **Batch performance** - 500+ symbol portfolio target not yet validated at scale
 
 These are **intentional** - Each phase adds complexity based on measured need.
 
@@ -152,45 +194,34 @@ These are **intentional** - Each phase adds complexity based on measured need.
 ```
 backgrid/
 ├── src/
-│   ├── api.py              # FastAPI endpoints
+│   ├── api.py              # FastAPI endpoints + static file mount
+│   ├── api_portfolio.py    # Portfolio and multi-strategy endpoints
 │   ├── backtest.py         # Core backtesting engine (legacy + enhanced)
 │   ├── models.py           # Pydantic request/response models
-│   ├── ui.py               # Simple HTML UI
+│   ├── db.py               # SQLAlchemy database models
+│   ├── ui.py               # SPA serving from frontend/dist/
+│   ├── worker.py           # Celery worker tasks
 │   ├── strategies/         # Pluggable strategy framework
-│   │   ├── base.py               # Abstract strategy interface
-│   │   ├── ma_strategy.py        # Moving average crossover
-│   │   ├── rsi_strategy.py       # RSI mean reversion
-│   │   └── strategy_manager.py   # Multi-strategy orchestration
 │   ├── data/               # Pluggable data loaders
-│   │   ├── base_loader.py        # Abstract loader + caching
-│   │   ├── yahoo_loader.py       # Yahoo Finance
-│   │   ├── postgres_loader.py    # RapidTrader PostgreSQL
-│   │   └── legacy.py             # Backward-compat fetch_ohlcv
 │   ├── position_sizing/    # Volatility-adjusted sizing
-│   │   ├── base_sizer.py         # Abstract interface
-│   │   ├── atr_sizer.py          # ATR-based sizing
-│   │   └── fixed_sizer.py        # Fixed fractional
 │   ├── execution/          # Order fill simulation
-│   │   ├── transaction_costs.py  # Commission/spread/slippage
-│   │   └── order_simulator.py    # Fill logic
-│   └── risk/               # Portfolio risk controls
-│       ├── market_regime.py      # SPY 200-SMA bull/bear filter
-│       ├── stop_loss.py          # ATR stops + cooldown
-│       ├── sector_limits.py      # Sector concentration caps
-│       └── portfolio_heat.py     # Aggregate risk tracking
-├── tests/
-│   ├── test_api.py             # API endpoint tests (19)
-│   ├── test_backtest.py        # Backtest logic tests (32)
-│   ├── test_data.py            # Legacy data tests (26)
-│   ├── test_data_loaders.py    # Data loader tests (25)
-│   ├── test_models.py          # Model validation tests (22)
-│   ├── test_strategies.py      # Strategy framework tests (45)
-│   ├── test_position_sizing.py # Position sizing tests (40)
-│   ├── test_execution.py       # Execution tests (37)
-│   └── test_risk.py            # Risk management tests (58)
-├── scripts/
-│   └── smoke_test.py       # Automated smoke tests
+│   ├── risk/               # Portfolio risk controls
+│   └── portfolio/          # Portfolio state and trade ledger
+├── frontend/
+│   ├── src/
+│   │   ├── index.html          # Main HTML shell
+│   │   ├── main.js             # App entry point
+│   │   ├── components/         # UI components (10 modules)
+│   │   ├── styles/             # Modular CSS (BEM methodology)
+│   │   ├── services/           # API client, storage, utils
+│   │   ├── state/              # AppState manager
+│   │   └── config/             # Constants and defaults
+│   ├── dist/                   # Production build output
+│   ├── package.json
+│   └── vite.config.js
+├── tests/                  # Test suite (650 tests)
 ├── docs/                   # Design docs and architecture
+├── alembic/                # Database migrations
 └── requirements.txt
 ```
 
@@ -203,7 +234,7 @@ backgrid/
 **Health Check**
 ```bash
 GET /api/v1/health
-# Returns: {"status": "ok", "phase": 1, "timestamp": "..."}
+# Returns: {"status": "ok", "phase": 2, "timestamp": "..."}
 ```
 
 **Submit Backtest Job**
@@ -234,20 +265,16 @@ GET /api/v1/jobs/{job_id}
 
 ## What's Next
 
-### Phase 2 Week 5: Portfolio Aggregation
-- Portfolio state tracker across multiple symbols
-- Trade ledger with strategy attribution
-- Celery workers for parallel 500+ symbol backtests
-
-### Phase 2 Week 6-7: API Extensions + Validation
-- Portfolio backtest endpoints
-- Alembic migrations for result persistence
-- Validation against RapidTrader historical performance
-
 ### Phase 3: Performance & Scale
 **When**: After profiling shows specific bottlenecks
 **What**: Go gRPC service for metrics, TimescaleDB for time-series, JWT auth
 **Why**: Only add complexity when measurements prove it's needed
+
+### Phase 3 Candidates
+- **Go gRPC Metrics Service** - When metrics calculation >50% of runtime
+- **TimescaleDB** - When PostgreSQL queries slow on 10M+ equity curve rows
+- **JWT Authentication** - When multiple users need data isolation
+- **Mobile responsive UI** - When mobile access is needed
 
 See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for detailed evolution plan.
 

@@ -16,8 +16,8 @@ try:
         JobStatus
     )
     from .data import fetch_ohlcv, DataFetchError
-    from .backtest import run_backtest, BacktestResult
-    from .ui import router as ui_router
+    from .backtest import run_backtest, run_backtest_enhanced, BacktestConfig, BacktestResult
+    from .ui import router as ui_router, mount_static_files
     from .api_portfolio import router as portfolio_router
     from .api_portfolio import symbols_router
 except ImportError:
@@ -29,8 +29,8 @@ except ImportError:
         JobStatus
     )
     from data import fetch_ohlcv, DataFetchError
-    from backtest import run_backtest, BacktestResult
-    from ui import router as ui_router
+    from backtest import run_backtest, run_backtest_enhanced, BacktestConfig, BacktestResult
+    from ui import router as ui_router, mount_static_files
     from api_portfolio import router as portfolio_router
     from api_portfolio import symbols_router
 
@@ -58,6 +58,7 @@ app = FastAPI(
 app.include_router(ui_router)
 app.include_router(portfolio_router)
 app.include_router(symbols_router)
+mount_static_files(app)
 
 
 @app.get("/api/v1/health", response_model=HealthResponse)
@@ -116,11 +117,22 @@ async def submit_job(request: BacktestRequest):
             )
 
         try:
-            result = run_backtest(
-                df=df,
-                strategy=request.strategy.value,
-                params=request.params
-            )
+            if request.config:
+                config = BacktestConfig(**request.config.model_dump())
+                enhanced_result = run_backtest_enhanced(
+                    df=df,
+                    strategy=request.strategy.value,
+                    params=request.params,
+                    config=config,
+                    symbol=request.symbol
+                )
+                result = enhanced_result.to_dict()
+            else:
+                result = run_backtest(
+                    df=df,
+                    strategy=request.strategy.value,
+                    params=request.params
+                )
             logger.info(f"Backtest completed: job_id={result['job_id']}, sharpe={result['sharpe']}")
         except ValueError as e:
             logger.error(f"Backtest error: {str(e)}")
