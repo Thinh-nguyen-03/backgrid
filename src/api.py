@@ -1,17 +1,20 @@
 """FastAPI application"""
 
 import time
+import uuid
 import logging
 from contextlib import asynccontextmanager
 from datetime import datetime, timezone
 
-from fastapi import FastAPI, HTTPException, Depends, Response
+from fastapi import FastAPI, HTTPException, Depends, Response, Request
 from fastapi.responses import JSONResponse
 from sqlalchemy import text
 from sqlalchemy.orm import Session
+from starlette.middleware.base import BaseHTTPMiddleware
 
 try:
     from .config import settings
+    from .logging_config import configure_logging, set_request_id
     from .models import (
         BacktestRequest,
         BacktestResponse,
@@ -35,6 +38,13 @@ except ImportError:
         redis_url = os.getenv("REDIS_URL", "redis://localhost:6379")
 
     settings = _FallbackSettings()
+
+    def configure_logging(level: int = logging.INFO) -> None:
+        logging.basicConfig(level=level)
+
+    def set_request_id(value: str) -> None:
+        pass
+
     from models import (
         BacktestRequest,
         BacktestResponse,
@@ -52,8 +62,19 @@ except ImportError:
     from api_extraction import router as extraction_router
     from api_sp500_history import router as sp500_history_router
 
-logging.basicConfig(level=logging.INFO)
+configure_logging()
 logger = logging.getLogger(__name__)
+
+
+class RequestIdMiddleware(BaseHTTPMiddleware):
+    """Assign a UUID to each request and expose it as X-Request-ID."""
+
+    async def dispatch(self, request: Request, call_next):
+        request_id = str(uuid.uuid4())
+        set_request_id(request_id)
+        response = await call_next(request)
+        response.headers["X-Request-ID"] = request_id
+        return response
 
 
 @asynccontextmanager
@@ -70,6 +91,8 @@ app = FastAPI(
     version="0.3.0",
     lifespan=lifespan
 )
+
+app.add_middleware(RequestIdMiddleware)
 
 app.include_router(ui_router)
 app.include_router(portfolio_router)

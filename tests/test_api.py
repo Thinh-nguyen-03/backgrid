@@ -81,6 +81,17 @@ class TestHealthEndpoint:
 
         assert response.headers["content-type"] == "application/json"
 
+    def test_request_id_header_present(self, client):
+        response = client.get("/api/v1/health")
+        assert "x-request-id" in response.headers
+        request_id = response.headers["x-request-id"]
+        assert len(request_id) == 36  # UUID4 format
+
+    def test_request_ids_are_unique(self, client):
+        r1 = client.get("/api/v1/health")
+        r2 = client.get("/api/v1/health")
+        assert r1.headers["x-request-id"] != r2.headers["x-request-id"]
+
     def test_health_check_db_failure_returns_503(self, client):
         from unittest.mock import patch, MagicMock
         from sqlalchemy.exc import OperationalError
