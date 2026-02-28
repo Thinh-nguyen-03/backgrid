@@ -331,8 +331,8 @@ class TestStrategyExtractor:
         assert result.confidence < 0.3
 
     def test_extract_without_api_key(self):
-        with patch.dict(os.environ, {}, clear=True):
-            os.environ.pop("ANTHROPIC_API_KEY", None)
+        import src.extraction.extractor as ext_mod
+        with patch.object(ext_mod.settings, "anthropic_api_key", None):
             extractor = StrategyExtractor()
             result = extractor.extract_from_text("test")
         assert not result.success
@@ -407,7 +407,8 @@ class TestExtractionAPIEndpoints:
 
     def test_import_disabled_by_default(self, client):
         """Without ENABLE_LLM_EXTRACTION, returns 503."""
-        with patch.dict(os.environ, {"ENABLE_LLM_EXTRACTION": ""}, clear=False):
+        import src.api_extraction as ext_mod
+        with patch.object(ext_mod.settings, "enable_llm_extraction", False):
             response = client.post(
                 "/api/v1/strategy/import", json={"text": "test"}
             )
@@ -415,12 +416,12 @@ class TestExtractionAPIEndpoints:
 
     def test_import_no_api_key(self, client):
         """With feature enabled but no API key, returns 503."""
-        env = {"ENABLE_LLM_EXTRACTION": "true"}
-        with patch.dict(os.environ, env, clear=False):
-            os.environ.pop("ANTHROPIC_API_KEY", None)
-            response = client.post(
-                "/api/v1/strategy/import", json={"text": "test"}
-            )
+        import src.api_extraction as ext_mod
+        with patch.object(ext_mod.settings, "enable_llm_extraction", True):
+            with patch.object(ext_mod.settings, "anthropic_api_key", None):
+                response = client.post(
+                    "/api/v1/strategy/import", json={"text": "test"}
+                )
         assert response.status_code == 503
 
     def test_import_no_input(self, client):

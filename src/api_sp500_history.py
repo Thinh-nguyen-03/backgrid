@@ -2,16 +2,22 @@
 
 import asyncio
 import logging
-import os
 from typing import List, Optional
 
 from fastapi import APIRouter, HTTPException, Query
 from pydantic import BaseModel, Field
 
 try:
+    from .config import settings
     from .sp500_history import get_sp500_history, MembershipDetail, ValidationResult
     from .sp500_updater import SP500Updater, UpdateStatus, UpdateResult
 except ImportError:
+    import os
+
+    class _FallbackSettings:
+        anthropic_api_key = os.getenv("ANTHROPIC_API_KEY")
+
+    settings = _FallbackSettings()
     from sp500_history import get_sp500_history, MembershipDetail, ValidationResult
     from sp500_updater import SP500Updater, UpdateStatus, UpdateResult
 
@@ -132,7 +138,7 @@ async def trigger_update():
             detail="Update rate limited. Try again later (max 1 per hour).",
         )
 
-    api_key = os.getenv("ANTHROPIC_API_KEY")
+    api_key = settings.anthropic_api_key
     if not api_key:
         raise HTTPException(
             status_code=503,

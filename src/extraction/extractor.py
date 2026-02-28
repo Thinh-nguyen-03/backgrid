@@ -2,11 +2,20 @@
 
 import json
 import logging
-import os
 import time
 from typing import Optional, Dict, Any, List
 
 from pydantic import BaseModel, Field
+
+try:
+    from ..config import settings
+except ImportError:
+    import os
+
+    class _FallbackSettings:
+        anthropic_api_key = os.getenv("ANTHROPIC_API_KEY")
+
+    settings = _FallbackSettings()
 
 from .content_fetcher import ContentFetcher
 from .prompts import SYSTEM_PROMPT, USER_PROMPT_TEMPLATE
@@ -48,7 +57,7 @@ class StrategyExtractor:
 
     def _call_llm(self, content: str) -> dict:
         """Call Anthropic Claude API for parameter extraction."""
-        api_key = os.getenv("ANTHROPIC_API_KEY")
+        api_key = settings.anthropic_api_key
         if not api_key:
             raise RuntimeError("ANTHROPIC_API_KEY not configured")
 

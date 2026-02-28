@@ -1,25 +1,21 @@
-"""Database models and configuration using SQLAlchemy (Phase 2)"""
+"""Database models and configuration."""
 
-import os
 from datetime import datetime, timezone
 from typing import Optional, Dict, Any, List
 from sqlalchemy import create_engine, Column, String, DateTime, Float, Text, JSON, Integer, ForeignKey
 from sqlalchemy.orm import declarative_base, sessionmaker, Session, relationship
-from dotenv import load_dotenv
 
-# Load environment variables from .env file
-load_dotenv()
+try:
+    from .config import settings
+    DATABASE_URL = settings.database_url
+except ImportError:
+    import os
+    DATABASE_URL = os.getenv("DATABASE_URL", "sqlite:///./backgrid.db")
 
 
 def _utcnow():
     """Return current UTC time as timezone-aware datetime."""
     return datetime.now(timezone.utc)
-
-# Database URL from environment variable
-DATABASE_URL = os.getenv(
-    "DATABASE_URL",
-    "postgresql://backgrid:backgrid_dev_password@localhost:5432/backgrid"
-)
 
 # Create SQLAlchemy engine with appropriate options for database type
 if DATABASE_URL.startswith("sqlite"):

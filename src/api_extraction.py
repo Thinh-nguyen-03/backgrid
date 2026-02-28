@@ -1,6 +1,5 @@
 """Strategy extraction API endpoints."""
 
-import os
 import logging
 from typing import Optional
 
@@ -9,8 +8,17 @@ from fastapi import APIRouter, HTTPException, Request, UploadFile, File
 from pydantic import BaseModel
 
 try:
+    from .config import settings
     from .extraction import StrategyExtractor, ExtractionResult
 except ImportError:
+    import os
+
+    class _FallbackSettings:
+        redis_url = os.getenv("REDIS_URL", "redis://localhost:6379")
+        anthropic_api_key = os.getenv("ANTHROPIC_API_KEY")
+        enable_llm_extraction = os.getenv("ENABLE_LLM_EXTRACTION", "false").lower() in ("1", "true", "yes")
+
+    settings = _FallbackSettings()
     from extraction import StrategyExtractor, ExtractionResult
 
 logger = logging.getLogger(__name__)
@@ -27,9 +35,8 @@ def _get_redis() -> Optional[redis_lib.Redis]:
     """Return a shared Redis client, or None if Redis is unavailable."""
     global _redis_client
     if _redis_client is None:
-        redis_url = os.getenv("REDIS_URL", "redis://localhost:6379")
         try:
-            _redis_client = redis_lib.from_url(redis_url, socket_connect_timeout=1)
+            _redis_client = redis_lib.from_url(settings.redis_url, socket_connect_timeout=1)
         except Exception as e:
             logger.warning(f"Redis unavailable, rate limiting disabled: {e}")
     return _redis_client
@@ -64,11 +71,11 @@ def _check_rate_limit(client_ip: str) -> None:
 def _get_extractor() -> StrategyExtractor:
     """Get extractor instance, checking feature flag and API key."""
     global _extractor
-    if os.getenv("ENABLE_LLM_EXTRACTION", "").lower() not in ("1", "true", "yes"):
+    if not settings.enable_llm_extraction:
         raise HTTPException(
             status_code=503, detail="LLM extraction is not enabled"
         )
-    if not os.getenv("ANTHROPIC_API_KEY"):
+    if not settings.anthropic_api_key:
         raise HTTPException(
             status_code=503, detail="ANTHROPIC_API_KEY not configured"
         )

@@ -10,7 +10,11 @@ from celery import Celery, group
 
 logger = logging.getLogger(__name__)
 
-REDIS_URL = os.getenv("REDIS_URL", "redis://localhost:6379/0")
+try:
+    from .config import settings
+    REDIS_URL = settings.redis_url
+except ImportError:
+    REDIS_URL = os.getenv("REDIS_URL", "redis://localhost:6379")
 
 app = Celery(
     "backgrid",
