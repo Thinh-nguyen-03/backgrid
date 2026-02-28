@@ -1,0 +1,136 @@
+.preset-selector__toolbar {
+  margin-bottom: 1rem;
+}
+
+.preset-selector__filter {
+  width: 100%;
+  padding: 0.5rem;
+  border: var(--border-thick);
+  font-family: var(--font-mono);
+  font-size: 0.78rem;
+  font-weight: 700;
+  box-shadow: 2px 2px 0px var(--color-ink);
+  background: var(--bg-panel);
+  color: var(--color-ink);
+  cursor: pointer;
+}
+
+.preset-selector__list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.8rem;
+  max-height: 300px;
+  overflow-y: auto;
+  padding-right: 0.25rem;
+}
+
+.preset-selector__empty {
+  font-family: var(--font-mono);
+  font-size: 0.8rem;
+  color: var(--color-text-sub);
+  padding: 1rem 0;
+  text-align: center;
+}
+
+.preset-card {
+  border: var(--border-thick);
+  padding: 1rem;
+  background: var(--bg-panel);
+  box-shadow: 3px 3px 0px var(--color-ink);
+  transition: transform 0.1s, box-shadow 0.1s;
+}
+
+.preset-card:hover {
+  transform: translate(-2px, -2px);
+  box-shadow: 5px 5px 0px var(--color-ink);
+}
+
+.preset-card__header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 0.5rem;
+}
+
+.preset-card__name {
+  font-family: var(--font-head);
+  font-size: 0.82rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  color: var(--color-ink);
+}
+
+.preset-card__risk {
+  font-family: var(--font-mono);
+  font-size: 0.6rem;
+  font-weight: 700;
+  padding: 0.15rem 0.5rem;
+  border: 2px solid var(--color-ink);
+  text-transform: uppercase;
+}
+
+.preset-card__risk--low {
+  background: var(--color-accent-secondary);
+}
+
+.preset-card__risk--moderate {
+  background: var(--color-accent-pop);
+}
+
+.preset-card__risk--aggressive {
+  background: var(--color-error);
+  color: #fff;
+  border-color: var(--color-error);
+}
+
+.preset-card__desc {
+  font-family: var(--font-mono);
+  font-size: 0.7rem;
+  color: var(--color-text-sub);
+  line-height: 1.5;
+  margin-bottom: 0.5rem;
+}
+
+.preset-card__meta {
+  display: flex;
+  gap: 0.5rem;
+  margin-bottom: 0.6rem;
+  font-family: var(--font-mono);
+  font-size: 0.6rem;
+  color: var(--color-text-sub);
+  text-transform: uppercase;
+}
+
+.preset-card__strategy {
+  background: var(--color-ink);
+  color: var(--color-accent-pop);
+  padding: 0.1rem 0.4rem;
+  font-weight: 700;
+}
+
+.preset-card__apply {
+  width: 100%;
+  margin-top: 0.4rem;
+}
+
+body.dark-mode .preset-card {
+  border-color: #555;
+  box-shadow: 3px 3px 0px #555;
+}
+
+body.dark-mode .preset-card:hover {
+  box-shadow: 5px 5px 0px #555;
+}
+
+body.dark-mode .preset-card__name {
+  color: #fff;
+}
+
+body.dark-mode .preset-card__desc {
+  color: #999;
+}
+
+body.dark-mode .preset-selector__filter {
+  border-color: #555;
+  box-shadow: 2px 2px 0px #555;
+}

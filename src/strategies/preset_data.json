@@ -1,0 +1,175 @@
+[
+  {
+    "id": "golden-cross",
+    "name": "Golden Cross",
+    "description": "Classic 50/200 day MA crossover. Buys on golden cross, sells on death cross. Best for long-term trend capture.",
+    "category": "trend_following",
+    "strategy": "ma_crossover",
+    "params": {
+      "fast": 50,
+      "slow": 200
+    },
+    "tags": ["classic", "long-term", "equities"],
+    "risk_level": "low",
+    "recommended_timeframe": "3+ years"
+  },
+  {
+    "id": "scalper-ma",
+    "name": "Short-Term MA Scalper",
+    "description": "Fast 5/20 MA crossover for short-term momentum. High trade frequency, works best in trending markets.",
+    "category": "trend_following",
+    "strategy": "ma_crossover",
+    "params": {
+      "fast": 5,
+      "slow": 20
+    },
+    "tags": ["short-term", "high-frequency", "momentum"],
+    "risk_level": "aggressive",
+    "recommended_timeframe": "3-12 months"
+  },
+  {
+    "id": "swing-ma",
+    "name": "Swing Trader MA",
+    "description": "Medium-term 20/50 MA crossover for swing trading. Balances signal frequency with noise filtering.",
+    "category": "trend_following",
+    "strategy": "ma_crossover",
+    "params": {
+      "fast": 20,
+      "slow": 50
+    },
+    "tags": ["medium-term", "swing", "balanced"],
+    "risk_level": "moderate",
+    "recommended_timeframe": "1-3 years"
+  },
+  {
+    "id": "rsi-oversold-bounce",
+    "name": "RSI Oversold Bounce",
+    "description": "Standard RSI mean reversion with 30/70 thresholds. Buys oversold conditions, sells overbought. No confirmation required.",
+    "category": "mean_reversion",
+    "strategy": "rsi",
+    "params": {
+      "rsi_period": 14,
+      "oversold_threshold": 30,
+      "overbought_threshold": 70,
+      "confirmation_window": 1,
+      "min_confirmations": 1
+    },
+    "tags": ["classic", "mean-reversion", "simple"],
+    "risk_level": "moderate",
+    "recommended_timeframe": "1-3 years"
+  },
+  {
+    "id": "rsi-conservative",
+    "name": "Conservative RSI",
+    "description": "Wider RSI bands (25/75) with slower 21-period lookback. Fewer signals, higher conviction entries.",
+    "category": "mean_reversion",
+    "strategy": "rsi",
+    "params": {
+      "rsi_period": 21,
+      "oversold_threshold": 25,
+      "overbought_threshold": 75,
+      "confirmation_window": 3,
+      "min_confirmations": 2
+    },
+    "tags": ["conservative", "low-frequency", "high-conviction"],
+    "risk_level": "low",
+    "recommended_timeframe": "2+ years"
+  },
+  {
+    "id": "rapidtrader-rsi",
+    "name": "RapidTrader RSI",
+    "description": "RSI mean reversion matching RapidTrader defaults. Asymmetric thresholds (30/55) with 2-of-3 confirmation logic.",
+    "category": "mean_reversion",
+    "strategy": "rsi",
+    "params": {
+      "rsi_period": 14,
+      "oversold_threshold": 30,
+      "overbought_threshold": 55,
+      "confirmation_window": 3,
+      "min_confirmations": 2
+    },
+    "tags": ["rapidtrader", "mean-reversion", "confirmed"],
+    "risk_level": "moderate",
+    "recommended_timeframe": "1-3 years"
+  },
+  {
+    "id": "momentum-breakout",
+    "name": "Momentum Breakout",
+    "description": "Fast 10/30 MA crossover with ATR-based position sizing. Captures breakout momentum with dynamic risk control.",
+    "category": "momentum",
+    "strategy": "ma_crossover",
+    "params": {
+      "fast": 10,
+      "slow": 30
+    },
+    "config": {
+      "position_sizing": "atr",
+      "risk_per_trade": 0.05,
+      "atr_period": 14,
+      "atr_multiplier": 3.0,
+      "enable_transaction_costs": true
+    },
+    "tags": ["momentum", "atr-sizing", "breakout"],
+    "risk_level": "aggressive",
+    "recommended_timeframe": "6-18 months"
+  },
+  {
+    "id": "defensive-value",
+    "name": "Defensive Value",
+    "description": "RSI with tight oversold (20) and wide overbought (60) thresholds. ATR sizing limits downside. Designed for choppy markets.",
+    "category": "mean_reversion",
+    "strategy": "rsi",
+    "params": {
+      "rsi_period": 14,
+      "oversold_threshold": 20,
+      "overbought_threshold": 60,
+      "confirmation_window": 3,
+      "min_confirmations": 2
+    },
+    "config": {
+      "position_sizing": "atr",
+      "risk_per_trade": 0.03,
+      "atr_period": 20,
+      "atr_multiplier": 2.5,
+      "enable_transaction_costs": true
+    },
+    "tags": ["defensive", "value", "risk-managed"],
+    "risk_level": "low",
+    "recommended_timeframe": "2+ years"
+  },
+  {
+    "id": "weekly-rotation",
+    "name": "Weekly Rotation",
+    "description": "Very fast 5/13 MA crossover for weekly rebalancing signals. High turnover, best for liquid large-caps.",
+    "category": "trend_following",
+    "strategy": "ma_crossover",
+    "params": {
+      "fast": 5,
+      "slow": 13
+    },
+    "tags": ["weekly", "rotation", "high-frequency"],
+    "risk_level": "aggressive",
+    "recommended_timeframe": "6-12 months"
+  },
+  {
+    "id": "balanced-portfolio",
+    "name": "Balanced Portfolio",
+    "description": "Classic 20/100 MA crossover with ATR sizing and moderate risk. General-purpose preset for diversified portfolios.",
+    "category": "trend_following",
+    "strategy": "ma_crossover",
+    "params": {
+      "fast": 20,
+      "slow": 100
+    },
+    "config": {
+      "position_sizing": "atr",
+      "risk_per_trade": 0.04,
+      "atr_period": 14,
+      "atr_multiplier": 3.0,
+      "enable_transaction_costs": true
+    },
+    "tags": ["balanced", "portfolio", "all-purpose"],
+    "risk_level": "moderate",
+    "recommended_timeframe": "2+ years"
+  }
+]
