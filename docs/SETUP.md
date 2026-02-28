@@ -26,10 +26,13 @@ cd backgrid
 # Install Python dependencies
 pip install -r requirements.txt
 
+# Configure environment
+cp .env.example .env   # edit as needed
+
 # Build frontend
 cd frontend && npm install && npm run build && cd ..
 
-# Start API server
+# Start API server (SQLite tables created automatically on first start)
 uvicorn src.api:app --reload --port 8000
 ```
 
@@ -78,6 +81,7 @@ Backgrid supports two database modes:
 ```bash
 # Uses backgrid.db file automatically
 # Configured via .env: DATABASE_URL=sqlite:///./backgrid.db
+# Tables are created automatically on first API startup via init_db()
 uvicorn src.api:app --reload --port 8000
 ```
 
@@ -106,42 +110,6 @@ alembic upgrade head
 
 # Start server
 uvicorn src.api:app --host 0.0.0.0 --port 8000
-```
-
-### RapidTrader PostgreSQL Integration
-
-To connect to existing RapidTrader database:
-
-```bash
-# Set environment variables in .env
-RT_DB_HOST=localhost
-RT_DB_PORT=5432
-RT_DB_NAME=rapidtrader
-RT_DB_USER=your_user
-RT_DB_PASSWORD=your_password
-```
-
-Required tables in PostgreSQL:
-```sql
-CREATE TABLE bars_daily (
-    symbol TEXT NOT NULL,
-    d DATE NOT NULL,
-    open REAL NOT NULL,
-    high REAL NOT NULL,
-    low REAL NOT NULL,
-    close REAL NOT NULL,
-    volume INTEGER NOT NULL,
-    PRIMARY KEY (symbol, d)
-);
-
-CREATE TABLE symbols (
-    symbol TEXT PRIMARY KEY,
-    name TEXT,
-    sector TEXT,
-    sub_sector TEXT,
-    is_active BOOLEAN DEFAULT true,
-    date_added DATE
-);
 ```
 
 ---
@@ -251,34 +219,33 @@ flyctl scale count 2 --app backgrid-demo
 | Variable | Default | Description |
 |----------|---------|-------------|
 | DATABASE_URL | sqlite:///./backgrid.db | Database connection string |
-| REDIS_URL | redis://localhost:6379/0 | Redis connection (Celery only) |
-| RT_DB_HOST | localhost | RapidTrader PostgreSQL host |
-| RT_DB_PORT | 5432 | PostgreSQL port |
-| RT_DB_NAME | rapidtrader | Database name |
-| RT_DB_USER | - | Database user |
-| RT_DB_PASSWORD | - | Database password |
-| CACHE_TTL | 3600 | Data cache TTL in seconds |
-| RT_MARKET_FILTER_ENABLE | true | Enable market regime filter |
-| RT_MARKET_FILTER_SMA | 200 | SMA period for bull/bear detection |
-| RT_MARKET_FILTER_SYMBOL | SPY | Reference symbol for regime filter |
-| RT_ATR_STOP_K | 3.0 | ATR multiplier for stop-loss |
-| RT_COOLDOWN_DAYS_ON_STOP | 1 | Days locked out after stop trigger |
-| RT_MAX_EXPOSURE_PER_SECTOR | 0.30 | Max portfolio exposure per sector |
+| REDIS_URL | redis://localhost:6379 | Redis connection (Celery + rate limiting) |
+| ANTHROPIC_API_KEY | - | API key for LLM-assisted strategy import |
+| ENABLE_LLM_EXTRACTION | false | Enable Claude-powered strategy extraction |
 
 ---
 
 ## Database Migrations
 
+**SQLite**: Tables are created automatically on startup via `init_db()`. Alembic migrations are not required for SQLite development.
+
+**PostgreSQL**: Run migrations before starting the server.
+
 ```bash
-# Upgrade to latest schema
+# Apply all migrations
 alembic upgrade head
 
-# Create new migration (after model changes)
+# Check current migration state
+alembic current
+
+# Create new migration after model changes
 alembic revision --autogenerate -m "description"
 
-# Downgrade one version
+# Downgrade one revision
 alembic downgrade -1
 ```
+
+Migration chain: `cc616f59a219` (jobs/results) → `add_portfolio_tables_week6` → `add_equity_curves_to_portfolio` (head)
 
 ---
 
@@ -360,8 +327,7 @@ If PostgresDataLoader fails to connect:
 
 ## Success Indicators
 
-✅ All 650 tests passing
-✅ API server starts without errors
-✅ Health check returns 200 OK
-✅ Sample backtest completes successfully
-✅ No deprecation warnings in test output
+- All tests passing (`pytest tests/ -q`)
+- API server starts without errors
+- Health check returns 200 OK (`curl http://localhost:8000/api/v1/health`)
+- Sample backtest completes successfully

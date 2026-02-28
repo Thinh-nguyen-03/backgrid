@@ -1,10 +1,10 @@
-"""FastAPI application (Phase 1 MVP + Week 6 Portfolio Extensions)"""
+"""FastAPI application"""
 
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Depends
 from fastapi.responses import JSONResponse
 from contextlib import asynccontextmanager
 from datetime import datetime, timezone
-from typing import Dict
+from sqlalchemy.orm import Session
 import logging
 
 try:
@@ -17,6 +17,7 @@ try:
     )
     from .data import fetch_ohlcv, DataFetchError
     from .backtest import run_backtest, run_backtest_enhanced, BacktestConfig, BacktestResult
+    from .db import get_db, init_db, Job, Result, create_job, create_result, get_job, get_result
     from .ui import router as ui_router, mount_static_files
     from .api_portfolio import router as portfolio_router
     from .api_portfolio import symbols_router
@@ -33,6 +34,7 @@ except ImportError:
     )
     from data import fetch_ohlcv, DataFetchError
     from backtest import run_backtest, run_backtest_enhanced, BacktestConfig, BacktestResult
+    from db import get_db, init_db, Job, Result, create_job, create_result, get_job, get_result
     from ui import router as ui_router, mount_static_files
     from api_portfolio import router as portfolio_router
     from api_portfolio import symbols_router
@@ -43,21 +45,19 @@ except ImportError:
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-job_results: Dict[str, dict] = {}
-
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    """Lifespan context manager for startup/shutdown"""
-    logger.info("Starting Backgrid API (Phase 2 - Week 6)")
+    init_db()
+    logger.info("Starting Backgrid API")
     yield
     logger.info("Shutting down Backgrid API")
 
 
 app = FastAPI(
     title="Backgrid API",
-    description="Backtesting engine for trading strategies (Phase 2 - Week 6: Portfolio Extensions)",
-    version="0.2.0",
+    description="Backtesting engine for trading strategies",
+    version="0.3.0",
     lifespan=lifespan
 )
 
@@ -72,12 +72,6 @@ mount_static_files(app)
 
 @app.get("/api/v1/health", response_model=HealthResponse)
 async def health_check():
-    """
-    Health check endpoint.
-
-    Returns:
-        Health status with current phase information
-    """
     return HealthResponse(
         status="ok",
         phase=2,
@@ -86,19 +80,8 @@ async def health_check():
 
 
 @app.post("/api/v1/jobs", response_model=BacktestResponse)
-async def submit_job(request: BacktestRequest):
-    """
-    Submit a backtest job (synchronous execution).
-
-    Args:
-        request: Backtest request parameters
-
-    Returns:
-        Backtest results including metrics and equity curve
-
-    Raises:
-        HTTPException: If data fetch fails or backtest execution fails
-    """
+async def submit_job(request: BacktestRequest, db: Session = Depends(get_db)):
+    """Submit a backtest job and persist the result to the database."""
     try:
         logger.info(
             f"Received backtest job: symbol={request.symbol}, "
@@ -156,7 +139,25 @@ async def submit_job(request: BacktestRequest):
                 detail=f"Internal error during backtest: {str(e)}"
             )
 
-        job_results[result["job_id"]] = result
+        create_job(
+            db=db,
+            job_id=result["job_id"],
+            symbol=request.symbol,
+            strategy=request.strategy.value,
+            params=request.params,
+            start_date=request.start,
+            end_date=request.end,
+            created_at=result.get("created_at"),
+        )
+        create_result(
+            db=db,
+            job_id=result["job_id"],
+            sharpe=result["sharpe"],
+            max_drawdown=result["max_drawdown"],
+            total_return=result["total_return"],
+            runtime_seconds=result["runtime_seconds"],
+            equity_curve=result["equity_curve"],
+        )
 
         return BacktestResponse(
             job_id=result["job_id"],
@@ -180,45 +181,35 @@ async def submit_job(request: BacktestRequest):
 
 
 @app.get("/api/v1/jobs/{job_id}", response_model=BacktestResponse)
-async def get_job(job_id: str):
-    """
-    Retrieve backtest job results by ID.
-
-    Args:
-        job_id: Unique job identifier
-
-    Returns:
-        Backtest results
-
-    Raises:
-        HTTPException: If job not found
-    """
+async def get_job_endpoint(job_id: str, db: Session = Depends(get_db)):
+    """Retrieve a backtest job and its result from the database."""
     logger.info(f"Retrieving job: {job_id}")
 
-    if job_id not in job_results:
+    job = get_job(db, job_id)
+    if not job:
         logger.warning(f"Job not found: {job_id}")
         raise HTTPException(
             status_code=404,
             detail=f"Job not found: {job_id}"
         )
 
-    result = job_results[job_id]
+    result = get_result(db, job_id)
 
     return BacktestResponse(
-        job_id=result["job_id"],
-        status=JobStatus.COMPLETED,
-        sharpe=result["sharpe"],
-        max_drawdown=result["max_drawdown"],
-        total_return=result["total_return"],
-        equity_curve=result["equity_curve"],
-        runtime_seconds=result["runtime_seconds"],
-        created_at=result["created_at"]
+        job_id=job.job_id,
+        status=JobStatus(job.status),
+        sharpe=result.sharpe if result else None,
+        max_drawdown=result.max_drawdown if result else None,
+        total_return=result.total_return if result else None,
+        equity_curve=result.equity_curve if result else None,
+        runtime_seconds=result.runtime_seconds if result else None,
+        error=result.error if result else None,
+        created_at=job.created_at,
     )
 
 
 @app.exception_handler(HTTPException)
 async def http_exception_handler(request, exc: HTTPException):
-    """Custom exception handler for HTTP exceptions"""
     return JSONResponse(
         status_code=exc.status_code,
         content={"error": exc.detail}

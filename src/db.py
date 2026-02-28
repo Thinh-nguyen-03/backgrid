@@ -397,6 +397,70 @@ def create_trade_entry(
     return trade
 
 
+def create_job(
+    db: Session,
+    job_id: str,
+    symbol: str,
+    strategy: str,
+    params: Optional[Dict[str, Any]],
+    start_date: str,
+    end_date: Optional[str],
+    created_at: Optional[Any] = None,
+) -> Job:
+    """Create a job record after a successful backtest."""
+    job = Job(
+        job_id=job_id,
+        symbol=symbol,
+        strategy=strategy,
+        params=params,
+        start_date=start_date,
+        end_date=end_date,
+        status="completed",
+        created_at=created_at or _utcnow(),
+    )
+    db.add(job)
+    db.commit()
+    db.refresh(job)
+    return job
+
+
+def get_job(db: Session, job_id: str) -> Optional[Job]:
+    """Get a job by ID."""
+    return db.query(Job).filter(Job.job_id == job_id).first()
+
+
+def create_result(
+    db: Session,
+    job_id: str,
+    sharpe: Optional[float],
+    max_drawdown: Optional[float],
+    total_return: Optional[float],
+    runtime_seconds: Optional[float],
+    equity_curve: Optional[List[Any]],
+    error: Optional[str] = None,
+) -> Result:
+    """Create a result record for a completed job."""
+    result = Result(
+        job_id=job_id,
+        sharpe=sharpe,
+        max_drawdown=max_drawdown,
+        total_return=total_return,
+        runtime_seconds=runtime_seconds,
+        equity_curve=equity_curve,
+        error=error,
+        created_at=_utcnow(),
+    )
+    db.add(result)
+    db.commit()
+    db.refresh(result)
+    return result
+
+
+def get_result(db: Session, job_id: str) -> Optional[Result]:
+    """Get a result by job ID."""
+    return db.query(Result).filter(Result.job_id == job_id).first()
+
+
 def get_trades_for_batch(
     db: Session,
     batch_id: str,
