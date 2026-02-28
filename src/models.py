@@ -161,8 +161,9 @@ class BacktestResponse(BaseModel):
 class HealthResponse(BaseModel):
     """Health check response"""
     status: str = Field(default="ok")
-    phase: int = Field(default=1, description="Current implementation phase")
+    phase: int = Field(default=2, description="Current implementation phase")
     timestamp: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    dependencies: Optional[Dict[str, Any]] = Field(default=None)
 
 
 class ErrorResponse(BaseModel):

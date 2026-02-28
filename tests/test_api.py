@@ -73,11 +73,33 @@ class TestHealthEndpoint:
         assert data["status"] == "ok"
         assert data["phase"] == 2
         assert "timestamp" in data
+        assert "dependencies" in data
+        assert data["dependencies"]["database"]["status"] == "ok"
 
     def test_health_check_returns_json(self, client):
         response = client.get("/api/v1/health")
 
         assert response.headers["content-type"] == "application/json"
+
+    def test_health_check_db_failure_returns_503(self, client):
+        from unittest.mock import patch, MagicMock
+        from sqlalchemy.exc import OperationalError
+        broken_db = MagicMock()
+        broken_db.execute.side_effect = OperationalError("", {}, Exception("db down"))
+
+        def override_broken_db():
+            yield broken_db
+
+        from src.api import app, get_db
+        app.dependency_overrides[get_db] = override_broken_db
+        try:
+            response = client.get("/api/v1/health")
+            assert response.status_code == 503
+            data = response.json()
+            assert data["status"] == "degraded"
+            assert data["dependencies"]["database"]["status"] == "unavailable"
+        finally:
+            app.dependency_overrides.pop(get_db, None)
 
 
 class TestSubmitJobEndpoint:

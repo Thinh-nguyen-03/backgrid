@@ -1,13 +1,17 @@
 """FastAPI application"""
 
-from fastapi import FastAPI, HTTPException, Depends
-from fastapi.responses import JSONResponse
+import time
+import logging
 from contextlib import asynccontextmanager
 from datetime import datetime, timezone
+
+from fastapi import FastAPI, HTTPException, Depends, Response
+from fastapi.responses import JSONResponse
+from sqlalchemy import text
 from sqlalchemy.orm import Session
-import logging
 
 try:
+    from .config import settings
     from .models import (
         BacktestRequest,
         BacktestResponse,
@@ -25,6 +29,12 @@ try:
     from .api_extraction import router as extraction_router
     from .api_sp500_history import router as sp500_history_router
 except ImportError:
+    import os
+
+    class _FallbackSettings:
+        redis_url = os.getenv("REDIS_URL", "redis://localhost:6379")
+
+    settings = _FallbackSettings()
     from models import (
         BacktestRequest,
         BacktestResponse,
@@ -71,11 +81,38 @@ mount_static_files(app)
 
 
 @app.get("/api/v1/health", response_model=HealthResponse)
-async def health_check():
+async def health_check(response: Response, db: Session = Depends(get_db)):
+    """Return service health with dependency probe results."""
+    deps: dict = {}
+    overall = "ok"
+
+    # Probe database (critical)
+    try:
+        t0 = time.monotonic()
+        db.execute(text("SELECT 1"))
+        deps["database"] = {"status": "ok", "latency_ms": round((time.monotonic() - t0) * 1000, 2)}
+    except Exception as e:
+        deps["database"] = {"status": "unavailable", "error": str(e)}
+        overall = "degraded"
+
+    # Probe Redis (non-critical)
+    try:
+        import redis as redis_lib
+        t0 = time.monotonic()
+        r = redis_lib.from_url(settings.redis_url, socket_connect_timeout=1)
+        r.ping()
+        deps["redis"] = {"status": "ok", "latency_ms": round((time.monotonic() - t0) * 1000, 2)}
+    except Exception:
+        deps["redis"] = {"status": "unavailable"}
+
+    if overall == "degraded":
+        response.status_code = 503
+
     return HealthResponse(
-        status="ok",
+        status=overall,
         phase=2,
-        timestamp=datetime.now(timezone.utc)
+        timestamp=datetime.now(timezone.utc),
+        dependencies=deps,
     )
 
 
