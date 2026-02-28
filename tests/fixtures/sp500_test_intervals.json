@@ -1,0 +1,19 @@
+{
+  "meta": {
+    "source": "test_fixture",
+    "generated_at": "2026-02-21T00:00:00",
+    "last_updated": "2026-01-17",
+    "coverage_start": "1996-01-02",
+    "coverage_end": "2026-01-17",
+    "total_symbols": 6,
+    "total_changes": 5
+  },
+  "intervals": {
+    "AAPL": [["1996-01-02", null]],
+    "MSFT": [["1996-01-02", null]],
+    "ENRNQ": [["1996-01-02", "2001-11-19"]],
+    "META": [["2013-12-23", null]],
+    "SNDK": [["2005-07-01", "2015-10-21"]],
+    "PLTR": []
+  }
+}
