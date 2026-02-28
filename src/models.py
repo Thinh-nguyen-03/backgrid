@@ -341,6 +341,33 @@ class PortfolioBacktestResponse(BaseModel):
     }
 
 
+class MetricDelta(BaseModel):
+    """Delta for a single numeric metric between two backtests."""
+    a: Optional[float] = None
+    b: Optional[float] = None
+    delta: Optional[float] = None
+
+
+class BacktestDiffResponse(BaseModel):
+    """Parameter and metric delta between two portfolio backtest runs."""
+    batch_id_a: str
+    batch_id_b: str
+    strategy_diff: Dict[str, Any] = Field(
+        default_factory=dict,
+        description="Strategy and parameter differences: {field: {a: ..., b: ...}}"
+    )
+    date_range_diff: Dict[str, Any] = Field(
+        default_factory=dict,
+        description="Date range comparison"
+    )
+    metric_diff: Dict[str, MetricDelta] = Field(
+        default_factory=dict,
+        description="Numeric metric deltas (b - a)"
+    )
+    symbols_a: List[str] = Field(default_factory=list)
+    symbols_b: List[str] = Field(default_factory=list)
+
+
 class TradeRecordModel(BaseModel):
     """Individual trade record."""
     id: Optional[str] = Field(None, description="Trade ID")

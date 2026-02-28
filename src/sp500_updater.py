@@ -241,13 +241,20 @@ class SP500Updater:
         if removed_col == -1:
             removed_col = _find_col(["removed"])
 
-        # Positional fallback: Date | Added ticker | Added name | Removed ticker | ...
+        missing = []
         if date_col == -1:
-            date_col = 0
+            missing.append("date")
         if added_col == -1:
-            added_col = 1
+            missing.append("added ticker")
         if removed_col == -1:
-            removed_col = 3
+            missing.append("removed ticker")
+
+        if missing:
+            raise ValueError(
+                f"Wikipedia changes table is missing expected columns: {missing}. "
+                f"Found headers: {col_labels}. "
+                "The page structure may have changed — update _find_col() keywords."
+            )
 
         logger.info(
             f"sp500_wikipedia_cols date={date_col} added={added_col} removed={removed_col}"

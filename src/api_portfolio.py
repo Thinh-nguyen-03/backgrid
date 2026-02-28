@@ -9,6 +9,8 @@ from fastapi import APIRouter, HTTPException, Depends, Query, Response
 from sqlalchemy.orm import Session
 
 from .models import (
+    BacktestDiffResponse,
+    MetricDelta,
     PortfolioBacktestRequest,
     PortfolioBacktestResponse,
     TradeLedgerResponse,
@@ -444,3 +446,86 @@ async def list_sectors():
     from .sp500 import get_sp500_symbols
     sectors = sorted({s["sector"] for s in get_sp500_symbols()})
     return sectors
+
+
+@router.get("/diff", response_model=BacktestDiffResponse)
+async def diff_backtests(
+    a: str = Query(..., description="First batch_id"),
+    b: str = Query(..., description="Second batch_id"),
+    db: Session = Depends(get_db),
+):
+    """Compare two portfolio backtest runs, returning parameter and metric deltas."""
+    if a == b:
+        raise HTTPException(status_code=400, detail="batch_id_a and batch_id_b must differ")
+
+    batch_a = get_portfolio_result(db, a)
+    batch_b = get_portfolio_result(db, b)
+
+    missing = []
+    if not batch_a:
+        missing.append(a)
+    if not batch_b:
+        missing.append(b)
+    if missing:
+        raise HTTPException(status_code=404, detail=f"Batch(es) not found: {missing}")
+
+    # Strategy / parameter diff
+    strategy_diff: dict = {}
+    if batch_a.strategy != batch_b.strategy:
+        strategy_diff["strategy"] = {"a": batch_a.strategy, "b": batch_b.strategy}
+
+    params_a = batch_a.params or {}
+    params_b = batch_b.params or {}
+    all_param_keys = set(params_a) | set(params_b)
+    param_deltas = {
+        k: {"a": params_a.get(k), "b": params_b.get(k)}
+        for k in sorted(all_param_keys)
+        if params_a.get(k) != params_b.get(k)
+    }
+    if param_deltas:
+        strategy_diff["params"] = param_deltas
+
+    # Date range diff
+    date_range_diff: dict = {}
+    if batch_a.start_date != batch_b.start_date:
+        date_range_diff["start_date"] = {"a": batch_a.start_date, "b": batch_b.start_date}
+    if batch_a.end_date != batch_b.end_date:
+        date_range_diff["end_date"] = {"a": batch_a.end_date, "b": batch_b.end_date}
+
+    # Numeric metric deltas
+    _METRICS = [
+        "average_return",
+        "average_sharpe",
+        "average_max_drawdown",
+        "total_trades",
+        "symbols_completed",
+        "symbols_failed",
+        "runtime_seconds",
+    ]
+
+    def _delta(va, vb):
+        if va is None or vb is None:
+            return None
+        try:
+            return round(float(vb) - float(va), 6)
+        except (TypeError, ValueError):
+            return None
+
+    metric_diff = {
+        m: MetricDelta(
+            a=getattr(batch_a, m),
+            b=getattr(batch_b, m),
+            delta=_delta(getattr(batch_a, m), getattr(batch_b, m)),
+        )
+        for m in _METRICS
+    }
+
+    return BacktestDiffResponse(
+        batch_id_a=a,
+        batch_id_b=b,
+        strategy_diff=strategy_diff,
+        date_range_diff=date_range_diff,
+        metric_diff=metric_diff,
+        symbols_a=batch_a.symbols or [],
+        symbols_b=batch_b.symbols or [],
+    )

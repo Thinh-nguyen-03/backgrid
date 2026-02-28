@@ -47,20 +47,21 @@ graph TD
 - **Serving**: Production build in `frontend/dist/` served by FastAPI via `app.mount()` for static assets and `FileResponse` for SPA
 
 #### API Layer ([src/api.py](../src/api.py))
-- **FastAPI application** with 9 endpoints (3 legacy + 6 new)
-- **Health check**: `GET /api/v1/health`
+- **FastAPI application** with 10+ endpoints
+- **Health check**: `GET /api/v1/health` — active DB + Redis probes, returns 503 when DB unreachable
 - **Submit job**: `POST /api/v1/jobs` (synchronous, supports optional `config` for execution parameters)
 - **Get job**: `GET /api/v1/jobs/{job_id}`
-- **Portfolio backtest**: `POST /api/v1/backtest/portfolio`
+- **Portfolio backtest**: `POST /api/v1/backtest/portfolio` (202 Accepted, async via Celery)
 - **Get portfolio**: `GET /api/v1/backtest/portfolio/{batch_id}`
 - **Get trades**: `GET /api/v1/backtest/portfolio/{batch_id}/trades`
+- **Diff backtests**: `GET /api/v1/backtest/diff?a={id}&b={id}`
 - **Multi-strategy**: `POST /api/v1/backtest/multi-strategy`
 - **List symbols**: `GET /api/v1/symbols`
 - **List sectors**: `GET /api/v1/sectors`
 - **Static files**: `app.mount("/assets", StaticFiles(...))` for frontend assets
-- **Storage**: PostgreSQL/SQLite for portfolio results, in-memory for single jobs
+- **Storage**: PostgreSQL/SQLite for all jobs and portfolio results
 - **Error handling**: HTTP 400/404/422/500 with clear messages
-- **Logging**: INFO level for all requests
+- **Logging**: Structured JSON with per-request UUID via `X-Request-ID` header
 
 #### Data Layer ([src/data/](../src/data/))
 - **S&P 500 Module** ([src/sp500.py](../src/sp500.py)): Fetches 503 S&P 500 symbols from us500.com (primary) or Wikipedia (fallback), organizes by 11 GICS sectors, 7-day in-memory cache
@@ -187,15 +188,7 @@ graph TD
 
 ### Limitations (By Design)
 
-1. **Synchronous execution for portfolio**: Jobs block the API thread
-   - Impact: Large portfolios may timeout
-   - Mitigation: Use Celery workers for async execution
-
-2. **In-memory storage for single jobs**: Results lost on restart
-   - Impact: Can't query historical single backtests
-   - Mitigation: Portfolio results persisted to PostgreSQL/SQLite
-
-3. **No authentication**: Open API
+1. **No authentication**: Open API
    - Impact: Anyone with access can submit jobs
    - Why acceptable: Single-user development mode
 
@@ -296,12 +289,46 @@ graph TD
 
 ---
 
-## Phase 3: Performance & Scale (FUTURE)
+## Phase 3: Engineering Hardening (COMPLETE)
+
+**Status**: Complete (2026-02-28)
+
+**Goal**: Address architectural inconsistencies and complete half-finished patterns from external senior review.
+
+### Changes Implemented
+
+| # | Change | Files |
+|---|--------|-------|
+| 1 | Persist single backtest jobs to DB | `src/db.py`, `src/api.py` |
+| 2 | `.env` out of version control | `.gitignore`, `.env.example` |
+| 3 | Alembic migrations wired end-to-end | `migrations/`, `docs/SETUP.md` |
+| 4 | Celery portfolio backtest async (202 + poll) | `src/api_portfolio.py`, `src/worker.py`, `src/portfolio/runner.py` |
+| 5 | Redis-backed rate limiter for LLM extraction | `src/api_extraction.py` |
+| 6 | Pydantic Settings — centralized config | `src/config.py` |
+| 7 | Health check with dependency probes | `src/api.py` |
+| 8 | Structured JSON logging + per-request IDs | `src/logging_config.py`, `src/api.py` |
+| 9 | Design Decisions documented | `docs/ARCHITECTURE.md` |
+| 10 | Wikipedia scraper hardened, `playwright` removed | `src/sp500_updater.py`, `requirements.txt` |
+| 11 | Backtest diff endpoint | `src/api_portfolio.py`, `src/models.py` |
+
+### New Modules
+
+- **`src/config.py`**: Pydantic Settings class; single source of truth for all env vars. Reads `.env` at import time so misconfiguration raises at startup.
+- **`src/logging_config.py`**: JSON formatter + `configure_logging()`. Each log line is a JSON object with `timestamp`, `level`, `logger`, `message`, `request_id`.
+- **`src/portfolio/runner.py`**: Extracted portfolio backtest execution logic, shared between the API (sync path) and Celery worker (async path) to avoid circular imports.
+
+---
+
+## Phase 4: Performance & Scale (FUTURE)
 
 **Triggers** (any of these):
 - Profiler shows metrics calculation >50% of runtime
 - Database queries >500ms on 10M+ rows
 - Multiple users need data isolation
+
+**Triggers** (any of these):
+- Multiple concurrent users need data isolation
+- Profiler shows bottlenecks in metrics calculation or DB queries
 
 **Stack Additions**: Go gRPC + TimescaleDB + JWT Auth
 
@@ -339,6 +366,24 @@ Each addition requires:
 - Profiler output or benchmark showing bottleneck
 - Comparison of alternatives
 - Before/after metrics
+
+---
+
+## Design Decisions
+
+Non-obvious choices and the reasoning behind them.
+
+| Decision | Rationale |
+|----------|-----------|
+| Vanilla JS instead of React | Demonstrates building without framework dependency; the scope was manageable at project start. The Strategy Import Wizard is the inflection point where revisiting this choice is warranted. |
+| SQLite dev / PostgreSQL prod | SQLAlchemy's abstraction handles both. Zero-config local development; production-grade persistence in Docker with no application-layer changes required. |
+| JSON for presets instead of DB | Presets are read-only reference data with no user mutation. A versioned flat file is simpler, reviewable in PRs, and requires no migration when changed. |
+| Interval-based S&P 500 storage | Point-in-time membership queries require range lookups. Storing `[start, end]` intervals enables O(log n) lookups per symbol vs. scanning a daily snapshot table. |
+| Wikipedia as S&P 500 source | Pragmatic choice for a personal project. Production would use a paid data vendor (CRSP, Refinitiv) or parse SEC filings. The scraper raises a descriptive error on unexpected page structure. |
+| In-memory job store (original) | Acceptable during MVP when restarts were frequent and results were ephemeral. Replaced by full DB persistence in Phase 3 — both single jobs and portfolio batches now survive restarts. |
+| Celery with threads pool on Windows | Python 3.13 broke the `prefork` pool on Windows. `--pool=threads` restores worker functionality with a small throughput tradeoff acceptable for this use case. |
+| Pydantic Settings at module level | `settings = Settings()` raises `ValidationError` at import time if required env vars are missing, surfacing misconfiguration at startup rather than mid-request. |
+| Fail-open rate limiter | The Redis rate limiter on LLM extraction allows the request when Redis is unavailable (`_get_redis()` returns `None`). Refusing requests due to a monitoring failure would be worse than no rate limiting. |
 
 ---
 

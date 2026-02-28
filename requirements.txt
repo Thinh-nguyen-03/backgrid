@@ -21,6 +21,4 @@ python-dotenv==1.0.0  # Load environment variables from .env file
 anthropic>=0.39.0
 PyPDF2>=3.0.0
 python-multipart>=0.0.6  # Required for FastAPI file uploads
-
-# Phase 3 - S&P 500 History (headless browser for JS-rendered pages)
-playwright>=1.40.0
+pydantic-settings>=2.0.0  # Centralized config via BaseSettings

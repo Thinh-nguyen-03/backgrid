@@ -6,6 +6,7 @@ from datetime import datetime
 from unittest.mock import patch, Mock, MagicMock
 from fastapi.testclient import TestClient
 
+from datetime import timezone
 from src.db import Base, engine, SessionLocal, PortfolioResult, SymbolResult, TradeLedgerEntry
 from src.api import app
 from src.worker import app as celery_app
@@ -576,3 +577,113 @@ class TestDatabaseIntegration:
         ).all()
 
         assert isinstance(trades, list)
+
+
+class TestDiffEndpoint:
+    """Tests for GET /api/v1/backtest/diff."""
+
+    def _make_batch(self, db_session, batch_id, strategy="ma_crossover",
+                    params=None, start="2023-01-01", end="2023-12-31",
+                    symbols=None, average_return=0.10, average_sharpe=1.0,
+                    average_max_drawdown=-0.10, total_trades=20,
+                    symbols_completed=2, symbols_failed=0):
+        from datetime import datetime, timezone
+        p = PortfolioResult(
+            batch_id=batch_id,
+            symbols=symbols or ["AAPL", "MSFT"],
+            strategy=strategy,
+            params=params or {},
+            start_date=start,
+            end_date=end,
+            status="completed",
+            symbols_requested=2,
+            symbols_completed=symbols_completed,
+            symbols_failed=symbols_failed,
+            average_return=average_return,
+            average_sharpe=average_sharpe,
+            average_max_drawdown=average_max_drawdown,
+            total_trades=total_trades,
+            created_at=datetime.now(timezone.utc),
+        )
+        db_session.add(p)
+        db_session.commit()
+        return p
+
+    def test_diff_same_id_returns_400(self, client, db_session):
+        response = client.get("/api/v1/backtest/diff?a=x&b=x")
+        assert response.status_code == 400
+
+    def test_diff_missing_batch_returns_404(self, client, db_session):
+        response = client.get("/api/v1/backtest/diff?a=missing-a&b=missing-b")
+        assert response.status_code == 404
+
+    def test_diff_one_missing_returns_404(self, client, db_session):
+        self._make_batch(db_session, "diff-exists-1")
+        response = client.get("/api/v1/backtest/diff?a=diff-exists-1&b=does-not-exist")
+        assert response.status_code == 404
+
+    def test_diff_same_strategy_no_strategy_diff(self, client, db_session):
+        self._make_batch(db_session, "diff-same-a", strategy="rsi",
+                         params={"rsi_period": 14}, average_return=0.10)
+        self._make_batch(db_session, "diff-same-b", strategy="rsi",
+                         params={"rsi_period": 14}, average_return=0.20)
+        response = client.get("/api/v1/backtest/diff?a=diff-same-a&b=diff-same-b")
+        assert response.status_code == 200
+        data = response.json()
+        assert "strategy" not in data["strategy_diff"]
+        assert data["metric_diff"]["average_return"]["delta"] == pytest.approx(0.10, abs=1e-5)
+
+    def test_diff_strategy_change_detected(self, client, db_session):
+        self._make_batch(db_session, "diff-strat-a", strategy="ma_crossover",
+                         params={"fast": 10, "slow": 30})
+        self._make_batch(db_session, "diff-strat-b", strategy="rsi",
+                         params={"rsi_period": 14})
+        response = client.get("/api/v1/backtest/diff?a=diff-strat-a&b=diff-strat-b")
+        assert response.status_code == 200
+        data = response.json()
+        assert data["strategy_diff"]["strategy"] == {"a": "ma_crossover", "b": "rsi"}
+        assert "params" in data["strategy_diff"]
+
+    def test_diff_param_change_detected(self, client, db_session):
+        self._make_batch(db_session, "diff-param-a", strategy="rsi",
+                         params={"rsi_period": 14})
+        self._make_batch(db_session, "diff-param-b", strategy="rsi",
+                         params={"rsi_period": 21})
+        response = client.get("/api/v1/backtest/diff?a=diff-param-a&b=diff-param-b")
+        assert response.status_code == 200
+        data = response.json()
+        assert data["strategy_diff"]["params"]["rsi_period"] == {"a": 14, "b": 21}
+
+    def test_diff_date_range_change(self, client, db_session):
+        self._make_batch(db_session, "diff-date-a", start="2022-01-01", end="2022-12-31")
+        self._make_batch(db_session, "diff-date-b", start="2023-01-01", end="2023-12-31")
+        response = client.get("/api/v1/backtest/diff?a=diff-date-a&b=diff-date-b")
+        assert response.status_code == 200
+        data = response.json()
+        assert data["date_range_diff"]["start_date"] == {"a": "2022-01-01", "b": "2023-01-01"}
+
+    def test_diff_symbols_present(self, client, db_session):
+        self._make_batch(db_session, "diff-sym-a", symbols=["AAPL", "MSFT"])
+        self._make_batch(db_session, "diff-sym-b", symbols=["AAPL", "GOOG"])
+        response = client.get("/api/v1/backtest/diff?a=diff-sym-a&b=diff-sym-b")
+        assert response.status_code == 200
+        data = response.json()
+        assert data["symbols_a"] == ["AAPL", "MSFT"]
+        assert data["symbols_b"] == ["AAPL", "GOOG"]
+
+    def test_diff_response_structure(self, client, db_session):
+        self._make_batch(db_session, "diff-struct-a")
+        self._make_batch(db_session, "diff-struct-b", average_sharpe=1.5)
+        response = client.get("/api/v1/backtest/diff?a=diff-struct-a&b=diff-struct-b")
+        assert response.status_code == 200
+        data = response.json()
+        assert "batch_id_a" in data
+        assert "batch_id_b" in data
+        assert "strategy_diff" in data
+        assert "metric_diff" in data
+        md = data["metric_diff"]
+        assert "average_return" in md
+        assert "average_sharpe" in md
+        assert md["average_sharpe"]["a"] == pytest.approx(1.0)
+        assert md["average_sharpe"]["b"] == pytest.approx(1.5)
+        assert md["average_sharpe"]["delta"] == pytest.approx(0.5, abs=1e-5)
