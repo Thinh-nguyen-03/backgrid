@@ -936,6 +936,263 @@ What you gave up to get this benefit
 
 ---
 
+## Phase 2.5 - Strategy Import System (Design: 2026-02-21)
+
+### Decision: Add Strategy Preset Library + LLM-Assisted Parameter Extraction
+
+**Date**: 2026-02-21
+
+**Problem**: Testing external strategies (papers, GitHub repos) requires 5-10 minutes of manual parameter extraction. Users must:
+1. Read strategy code/paper
+2. Identify 10-15 parameters (RSI periods, thresholds, position sizing, risk rules)
+3. Manually enter into UI form
+4. Repeat for parameter variations
+
+This creates friction and limits strategy exploration velocity.
+
+**User Request Context**: "Should we implement features that allow a strategy to be tested dynamically? Like we linked a paper, a repo, or an explanation and all the necessary params are extracted based on that and used for backtesting"
+
+**Approach - Two Phases**:
+
+**Phase A: Strategy Preset Library** (1-2 weeks)
+- JSON-based strategy templates with complete configurations
+- UI dropdown selector with categorization (mean reversion, trend following, etc.)
+- 10+ initial presets covering common strategies (RapidTrader RSI, Turtle Trader, MA crossovers)
+- Metadata includes source URL, author, description, tags
+- One-click load into backtest form
+- No code execution (pure configuration)
+
+**Phase B: LLM-Assisted Parameter Extraction** (1-2 weeks)
+- Import wizard accepting GitHub URL, PDF, text description, or code snippet
+- Claude API integration for intelligent parameter extraction
+- Confidence scoring (0-1) with quality levels (high/medium/low)
+- Lists assumptions and warnings for user review
+- Matches to existing presets if >90% similar
+- User must review extracted params before execution (no arbitrary code execution)
+- Cost: ~$0.03 per extraction, rate limit 10/hour per user
+
+**Technology Choices**:
+- **Pydantic models**: Schema validation for presets
+- **Claude 3.7 Sonnet**: Best balance of accuracy and cost for extraction
+- **JSON storage**: Simple, version-controllable preset format
+- **No database (Phase A)**: Static JSON file is sufficient
+- **Future database**: User custom presets in Phase 3
+
+**What This Solves**:
+- Reduces strategy setup time from 5-10 min → <1 min with presets
+- Enables rapid testing of strategies from academic papers
+- Creates reusable strategy library
+- Facilitates community contributions
+- Maintains security (no arbitrary code execution)
+
+**What This Does NOT Solve**:
+- Custom strategy implementation (still use BaseStrategy SDK)
+- Strategy optimization/hyperparameter tuning (Phase 3)
+- Multi-strategy portfolio construction (already supported via StrategyManager)
+
+**Measured Success Criteria**:
+- Phase A: 80%+ of common strategies covered by presets
+- Phase B: >85% extraction accuracy for supported strategy types
+- User review catches 100% of misconfigurations before execution
+- Monthly API cost <$50 for expected usage
+
+**Parallelization with Other Work**:
+YES - Can run fully in parallel with:
+- Frontend testing (Jest setup)
+- Production monitoring (Prometheus/Grafana)
+- CI/CD pipeline setup
+
+No blocking dependencies. Separate code paths, minimal merge conflicts.
+
+**Complexity Justification**:
+Following "complexity receipts" philosophy:
+1. **Real pain point**: 5-10 min manual work per strategy
+2. **High-value use case**: Testing strategies from papers/repos is core workflow
+3. **Measured benefit**: 5-10x speedup in strategy testing velocity
+4. **Incremental approach**: Phase A (simple) validates value before Phase B (LLM)
+5. **Security first**: No code execution, only configuration extraction
+
+**Alternative Considered**:
+Dynamic strategy code loading (paste Python code → execute)
+- **Rejected**: Security risk, validation complexity, debugging nightmare
+- **Better**: Guide users to implement BaseStrategy (~20 lines of code)
+
+**Design Document**: `docs/STRATEGY_IMPORT_DESIGN.md` (38KB, comprehensive spec)
+
+**Timeline**:
+- Design complete: 2026-02-21
+- Phase A implementation: TBD (1-2 weeks)
+- Phase B implementation: TBD (1-2 weeks after Phase A)
+- Can run parallel with frontend tests + monitoring work
+
+---
+
+---
+
+## Phase 3: Engineering Hardening (Planned: 2026-02-28)
+
+Based on external senior engineering review. 11 improvements prioritized to resolve architectural inconsistencies and complete half-finished patterns before adding further features.
+
+---
+
+### Decision: Persist Jobs to Database
+
+**Date**: 2026-02-28 (planned)
+
+**Problem**: Single backtest jobs live in an in-memory Python dict. Portfolio results persist to the database; jobs do not. This inconsistency is the most visible design smell in the codebase — the same API layer has two incompatible state models.
+
+**Decision**: Add a `jobs` table to the existing SQLAlchemy schema. Replace the `jobs = {}` dict in `src/api.py` with DB reads/writes. Generate an Alembic migration.
+
+**Impact**: Job history survives server restarts. Job History UI becomes trustworthy. Unblocks Celery wiring (task status can be persisted properly).
+
+**Tradeoffs**: Small write overhead per job submission. Acceptable given jobs already write results to DB.
+
+---
+
+### Decision: Remove .env from Version Control
+
+**Date**: 2026-02-28 (planned)
+
+**Problem**: `.env` is tracked in git. API keys and database URLs must never be committed regardless of project scope.
+
+**Decision**: Add `.env` to `.gitignore`, remove from git tracking, create `.env.example` with placeholder values.
+
+**Impact**: Eliminates real security risk. One-time fix.
+
+**Tradeoffs**: None. This is strictly a fix.
+
+---
+
+### Decision: Complete Alembic Migration Workflow
+
+**Date**: 2026-02-28 (planned)
+
+**Problem**: Alembic is in `requirements.txt` but migrations are manual scripts, not proper Alembic revisions. Schema changes require manual DB recreation. This is the canonical "right tool, incomplete pattern" signal.
+
+**Decision**: Generate a proper initial migration from the current schema. Wire `migrations/env.py` correctly to `src/db.py` models. Document the workflow in `docs/SETUP.md`.
+
+**Impact**: Schema evolution becomes: `alembic revision --autogenerate` + `alembic upgrade head`. Rollback is `alembic downgrade -1`. No more manual DB recreation.
+
+**Tradeoffs**: Migration files must be kept in sync with model changes. Low ongoing cost.
+
+---
+
+### Decision: Wire Celery End-to-End for Portfolio Backtests
+
+**Date**: 2026-02-28 (planned)
+
+**Problem**: Celery and Redis are in `requirements.txt`, `src/worker.py` has task definitions, but portfolio backtests run synchronously inside the HTTP handler, blocking the FastAPI worker thread. This is the single most impactful incomplete pattern.
+
+**Requires**: DB job persistence (#1 above).
+
+**Decision**: `POST /api/v1/backtest/portfolio` enqueues a Celery task and returns `202 Accepted` with a `batch_id` immediately. Task updates the DB record through `PENDING → RUNNING → COMPLETE / FAILED` transitions. Status is polled via the existing GET endpoint.
+
+**Impact**: Portfolio backtests become non-blocking. Multiple backtests run in parallel. Worker crash leaves job in `FAILED` state rather than hanging. Demonstrates producer/consumer architecture end-to-end.
+
+**Tradeoffs**: Adds operational complexity — Redis must be running. Already a requirement; this makes it a real one rather than a listed dependency.
+
+---
+
+### Decision: Move Rate Limiters to Redis
+
+**Date**: 2026-02-28 (planned)
+
+**Problem**: LLM extraction rate limiter is in-memory. Resets on restart, doesn't work across multiple worker processes. Redis is already in the stack.
+
+**Requires**: Celery wired (#4 above) — Redis already running.
+
+**Decision**: Replace in-memory counter with `INCR` + `EXPIRE` on a Redis key scoped by client IP, TTL 3600s.
+
+**Impact**: Rate limit survives restarts, works correctly with multiple workers.
+
+**Tradeoffs**: Redis becomes a hard dependency for LLM extraction. Already true given Celery. No additional infrastructure cost.
+
+---
+
+### Decision: Pydantic BaseSettings for Configuration
+
+**Date**: 2026-02-28 (planned)
+
+**Problem**: Configuration is scattered `os.environ.get()` calls across `api.py`, `api_portfolio.py`, `api_extraction.py`, `worker.py`, `db.py`. Misconfiguration surfaces mid-request, not at startup.
+
+**Decision**: Create `src/config.py` with a `pydantic_settings.BaseSettings` class. Replace all `os.environ.get()` callsites with `from src.config import settings`.
+
+**Impact**: Misconfiguration fails at startup with a clear `ValidationError`. All configuration is discoverable in one place.
+
+**Tradeoffs**: Adds `pydantic-settings` as a dependency (already likely present transitively). Requires touching multiple files for the migration.
+
+---
+
+### Decision: Active Dependency Probes in Health Check
+
+**Date**: 2026-02-28 (planned)
+
+**Problem**: `GET /api/v1/health` returns `{"status": "ok"}` unconditionally. It cannot detect database failure, Redis unavailability, or degraded data sources.
+
+**Decision**: Rewrite the health endpoint to actively probe database (query), Redis (ping), and yfinance (lightweight request). Return `200` when critical dependencies are healthy, `503` when database or Redis is down. Non-critical dependencies (yfinance, Anthropic API) contribute `"degraded"` status without triggering `503`.
+
+**Impact**: Health check becomes a real operational signal rather than a liveness stub.
+
+**Tradeoffs**: Health endpoint now has latency proportional to dependency response time. Mitigate with short timeouts (500ms) on each probe.
+
+---
+
+### Decision: Structured JSON Logging with Request IDs
+
+**Date**: 2026-02-28 (planned)
+
+**Problem**: Logs are unstructured plaintext. No request correlation. Cannot trace a slow backtest across log lines from different functions or workers.
+
+**Decision**: Add FastAPI middleware that generates a UUID per request and attaches it to request state. Use `python-json-logger` for structured JSON output. Thread `request_id` / `task_id` through backtest engine and Celery task log calls.
+
+**Impact**: Every log line for a request shares a `request_id`. Logs are parseable with `jq`. Worker logs include `task_id` and `batch_id` for correlation.
+
+**Tradeoffs**: Structured logs are less readable in a terminal without tooling. Acceptable tradeoff for any system beyond single-process development.
+
+---
+
+### Decision: Document Architectural Decision Rationale
+
+**Date**: 2026-02-28 (planned)
+
+**Problem**: Non-obvious design choices (vanilla JS, JSON presets, interval-based S&P 500 storage, original in-memory job store) lack documented rationale. Reviewers must guess; the author cannot explain them confidently in interviews.
+
+**Decision**: Add a "Design Decisions" table to `docs/ARCHITECTURE.md` covering the choices above with one-sentence rationale for each.
+
+**Impact**: Every non-obvious decision has a recorded justification. Answers "why" questions without hesitation.
+
+**Tradeoffs**: Documentation requires maintenance when decisions change.
+
+---
+
+### Decision: Replace Wikipedia Playwright Scraper with MediaWiki API
+
+**Date**: 2026-02-28 (planned)
+
+**Problem**: `src/sp500_updater.py` uses Playwright (headless browser) to scrape Wikipedia. Wikipedia has a public structured REST API returning the same data as JSON. Playwright is heavyweight and will silently ingest garbage if the page structure changes.
+
+**Decision**: Replace Playwright with `httpx` + HTML parsing via `lxml`/`beautifulsoup4` against the Wikipedia API. Add column header validation that raises a descriptive error rather than ingesting malformed data. Remove `playwright` from `requirements.txt`.
+
+**Impact**: Removes a heavy dependency. Makes data source brittleness explicit (errors loudly instead of silently).
+
+**Tradeoffs**: Still using Wikipedia as the data source — acknowledged as a pragmatic choice for a personal project (documented in ARCHITECTURE.md rationale table).
+
+---
+
+### Decision: Add Backtest Result Diffing Endpoint
+
+**Date**: 2026-02-28 (planned)
+
+**Problem**: No way to quantify the P&L impact of parameter changes between two backtest runs. Users manually compare JSON responses.
+
+**Decision**: Add `GET /api/v1/backtest/diff?a={batch_id}&b={batch_id}` returning parameter deltas alongside metric deltas. Build a UI panel for side-by-side comparison.
+
+**Impact**: Users can directly see: "changing commission from 1 bps to 5 bps reduced total return by 5%." Requires a stable result schema (forces API contract discipline) and a diff algorithm over structured objects.
+
+**Tradeoffs**: Meaningful only when both backtests use the same symbols and date range. Return a clear error for incompatible comparisons.
+
+---
+
 ## Principles
 
 1. **No technology without a trigger**: Add complexity only when measurements show the need

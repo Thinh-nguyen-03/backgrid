@@ -1,12 +1,8 @@
 # Strategy SDK
 
-**Phase 2 Complete** - RSI and MA strategies fully implemented and tested
-
 Backgrid strategies are **pure, pluggable modules** that generate trading signals from price data.
 
-## Current Implementation (Phase 2)
-
-### BaseStrategy Interface
+## BaseStrategy Interface
 
 All strategies inherit from `BaseStrategy`:
 
@@ -18,24 +14,24 @@ class BaseStrategy(ABC):
     def __init__(self, params: dict):
         self.params = params
         self._validate_params()
-    
+
     @abstractmethod
     def calculate_signals(self, df: pd.DataFrame) -> pd.Series:
         """Calculate trading signals from OHLCV data.
-        
+
         Args:
             df: DataFrame with OHLCV columns
-        
+
         Returns:
             Series of Signal values (BUY, SELL, HOLD)
         """
         pass
-    
+
     @abstractmethod
     def get_warmup_period(self) -> int:
         """Return number of bars needed before signals are valid."""
         pass
-    
+
     def _validate_params(self) -> None:
         """Validate strategy parameters."""
         pass
@@ -58,7 +54,7 @@ strategy = MAStrategy({
 signals = strategy.calculate_signals(df)
 ```
 
-**Default Parameters** (RapidTrader compatible):
+**Default Parameters**:
 - `fast_period`: 20
 - `slow_period`: 100
 
@@ -85,7 +81,7 @@ signals = strategy.calculate_signals(df)
 rsi = strategy.get_rsi_values(df)
 ```
 
-**Default Parameters** (RapidTrader compatible):
+**Default Parameters**:
 - `rsi_period`: 14 (Wilder's smoothing)
 - `oversold_threshold`: 30
 - `overbought_threshold`: 55
@@ -94,7 +90,7 @@ rsi = strategy.get_rsi_values(df)
 
 **Warmup Period**: `rsi_period + confirmation_window` bars
 
-**RSI Calculation**: Uses Wilder's smoothing method (`ewm(alpha=1/period, adjust=False)`)
+**RSI Calculation**: Uses Wilder's smoothing (`ewm(alpha=1/period, adjust=False)`)
 
 ### 3. Multi-Strategy Combination
 
@@ -121,8 +117,6 @@ signals, attributions = manager.calculate_signals(df, return_attributions=True)
 
 ## Signal Enum
 
-All strategies return signals using the `Signal` enum:
-
 ```python
 from src.strategies import Signal
 
@@ -140,7 +134,7 @@ Signal.HOLD  # No action
 5. Add default parameters in `DEFAULT_PARAMS` class variable
 6. Write tests in `tests/test_your_strategy.py`
 
-Example:
+Minimal example:
 
 ```python
 from .base import BaseStrategy, Signal
@@ -148,27 +142,65 @@ import pandas as pd
 
 class MyStrategy(BaseStrategy):
     name: str = "my_strategy"
-    
+
     DEFAULT_PARAMS = {
         "period": 20,
         "threshold": 0.5
     }
-    
+
     def __init__(self, params=None):
         merged_params = {**self.DEFAULT_PARAMS, **(params or {})}
         super().__init__(merged_params)
-    
+
     def _validate_params(self):
         if self.params["period"] < 2:
             raise ValueError("period must be >= 2")
-    
+
     def get_warmup_period(self) -> int:
         return self.params["period"]
-    
+
     def calculate_signals(self, df: pd.DataFrame) -> pd.Series:
         self.validate_dataframe(df)
-        # Your logic here
         signals = pd.Series(Signal.HOLD, index=df.index)
+        # your signal logic here
+        return signals
+```
+
+Extended example — MA crossover with N-day confirmation (illustrates rolling confirmation pattern):
+
+```python
+from .base import BaseStrategy, Signal
+import pandas as pd
+
+class MAConfirmedStrategy(BaseStrategy):
+    """MA crossover requiring N consecutive days of agreement before signaling."""
+
+    name: str = "ma_confirmed"
+
+    DEFAULT_PARAMS = {
+        "fast_period": 20,
+        "slow_period": 100,
+        "confirmation_days": 2
+    }
+
+    def __init__(self, params=None):
+        merged_params = {**self.DEFAULT_PARAMS, **(params or {})}
+        super().__init__(merged_params)
+
+    def get_warmup_period(self) -> int:
+        return self.params["slow_period"] + self.params["confirmation_days"]
+
+    def calculate_signals(self, df: pd.DataFrame) -> pd.Series:
+        self.validate_dataframe(df)
+        fast_ma = df["Close"].rolling(window=self.params["fast_period"]).mean()
+        slow_ma = df["Close"].rolling(window=self.params["slow_period"]).mean()
+        conf = self.params["confirmation_days"]
+
+        bullish_count = (fast_ma > slow_ma).astype(int).rolling(window=conf).sum()
+
+        signals = pd.Series(Signal.HOLD, index=df.index)
+        signals[bullish_count >= conf] = Signal.BUY
+        signals[bullish_count == 0] = Signal.SELL
         return signals
 ```
 
@@ -181,11 +213,4 @@ Required tests:
 - Warmup period calculation
 - DataFrame validation (missing columns, insufficient data)
 
-See `tests/test_rsi_strategy.py` for comprehensive example (32 tests).
-
-## Future Extensions (Phase 3)
-
-- Event-driven context (`ctx`) with portfolio state
-- Order placement helpers
-- Resource limits (memory, runtime)
-- Custom indicators library
+See [tests/test_rsi_strategy.py](../tests/test_rsi_strategy.py) for a comprehensive example (32 tests).
