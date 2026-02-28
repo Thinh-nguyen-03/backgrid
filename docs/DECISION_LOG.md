@@ -1029,7 +1029,7 @@ Dynamic strategy code loading (paste Python code → execute)
 
 ---
 
-## Phase 3: Engineering Hardening (Planned: 2026-02-28)
+## Phase 3: Engineering Hardening (Completed: 2026-02-28)
 
 Based on external senior engineering review. 11 improvements prioritized to resolve architectural inconsistencies and complete half-finished patterns before adding further features.
 
@@ -1037,7 +1037,7 @@ Based on external senior engineering review. 11 improvements prioritized to reso
 
 ### Decision: Persist Jobs to Database
 
-**Date**: 2026-02-28 (planned)
+**Date**: 2026-02-28 (completed)
 
 **Problem**: Single backtest jobs live in an in-memory Python dict. Portfolio results persist to the database; jobs do not. This inconsistency is the most visible design smell in the codebase — the same API layer has two incompatible state models.
 
@@ -1051,7 +1051,7 @@ Based on external senior engineering review. 11 improvements prioritized to reso
 
 ### Decision: Remove .env from Version Control
 
-**Date**: 2026-02-28 (planned)
+**Date**: 2026-02-28 (completed)
 
 **Problem**: `.env` is tracked in git. API keys and database URLs must never be committed regardless of project scope.
 
@@ -1065,7 +1065,7 @@ Based on external senior engineering review. 11 improvements prioritized to reso
 
 ### Decision: Complete Alembic Migration Workflow
 
-**Date**: 2026-02-28 (planned)
+**Date**: 2026-02-28 (completed)
 
 **Problem**: Alembic is in `requirements.txt` but migrations are manual scripts, not proper Alembic revisions. Schema changes require manual DB recreation. This is the canonical "right tool, incomplete pattern" signal.
 
@@ -1079,7 +1079,7 @@ Based on external senior engineering review. 11 improvements prioritized to reso
 
 ### Decision: Wire Celery End-to-End for Portfolio Backtests
 
-**Date**: 2026-02-28 (planned)
+**Date**: 2026-02-28 (completed)
 
 **Problem**: Celery and Redis are in `requirements.txt`, `src/worker.py` has task definitions, but portfolio backtests run synchronously inside the HTTP handler, blocking the FastAPI worker thread. This is the single most impactful incomplete pattern.
 
@@ -1095,7 +1095,7 @@ Based on external senior engineering review. 11 improvements prioritized to reso
 
 ### Decision: Move Rate Limiters to Redis
 
-**Date**: 2026-02-28 (planned)
+**Date**: 2026-02-28 (completed)
 
 **Problem**: LLM extraction rate limiter is in-memory. Resets on restart, doesn't work across multiple worker processes. Redis is already in the stack.
 
@@ -1111,7 +1111,7 @@ Based on external senior engineering review. 11 improvements prioritized to reso
 
 ### Decision: Pydantic BaseSettings for Configuration
 
-**Date**: 2026-02-28 (planned)
+**Date**: 2026-02-28 (completed)
 
 **Problem**: Configuration is scattered `os.environ.get()` calls across `api.py`, `api_portfolio.py`, `api_extraction.py`, `worker.py`, `db.py`. Misconfiguration surfaces mid-request, not at startup.
 
@@ -1125,7 +1125,7 @@ Based on external senior engineering review. 11 improvements prioritized to reso
 
 ### Decision: Active Dependency Probes in Health Check
 
-**Date**: 2026-02-28 (planned)
+**Date**: 2026-02-28 (completed)
 
 **Problem**: `GET /api/v1/health` returns `{"status": "ok"}` unconditionally. It cannot detect database failure, Redis unavailability, or degraded data sources.
 
@@ -1139,7 +1139,7 @@ Based on external senior engineering review. 11 improvements prioritized to reso
 
 ### Decision: Structured JSON Logging with Request IDs
 
-**Date**: 2026-02-28 (planned)
+**Date**: 2026-02-28 (completed)
 
 **Problem**: Logs are unstructured plaintext. No request correlation. Cannot trace a slow backtest across log lines from different functions or workers.
 
@@ -1153,7 +1153,7 @@ Based on external senior engineering review. 11 improvements prioritized to reso
 
 ### Decision: Document Architectural Decision Rationale
 
-**Date**: 2026-02-28 (planned)
+**Date**: 2026-02-28 (completed)
 
 **Problem**: Non-obvious design choices (vanilla JS, JSON presets, interval-based S&P 500 storage, original in-memory job store) lack documented rationale. Reviewers must guess; the author cannot explain them confidently in interviews.
 
@@ -1167,7 +1167,7 @@ Based on external senior engineering review. 11 improvements prioritized to reso
 
 ### Decision: Replace Wikipedia Playwright Scraper with MediaWiki API
 
-**Date**: 2026-02-28 (planned)
+**Date**: 2026-02-28 (completed)
 
 **Problem**: `src/sp500_updater.py` uses Playwright (headless browser) to scrape Wikipedia. Wikipedia has a public structured REST API returning the same data as JSON. Playwright is heavyweight and will silently ingest garbage if the page structure changes.
 
@@ -1181,7 +1181,7 @@ Based on external senior engineering review. 11 improvements prioritized to reso
 
 ### Decision: Add Backtest Result Diffing Endpoint
 
-**Date**: 2026-02-28 (planned)
+**Date**: 2026-02-28 (completed)
 
 **Problem**: No way to quantify the P&L impact of parameter changes between two backtest runs. Users manually compare JSON responses.
 

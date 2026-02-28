@@ -117,7 +117,7 @@ uvicorn src.api:app --host 0.0.0.0 --port 8000
 ## Running Tests
 
 ```bash
-# All tests (650 tests, ~10 seconds)
+# All tests (660+ tests, ~10 seconds)
 pytest tests/ -v
 
 # Specific test file
@@ -128,7 +128,7 @@ pytest tests/ --cov=src --cov-report=html
 open htmlcov/index.html
 ```
 
-**Expected**: 650 tests passing, 0 failures
+**Expected**: 660+ tests passing, 0 failures
 
 ---
 

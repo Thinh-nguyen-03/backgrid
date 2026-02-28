@@ -9,17 +9,17 @@
 
 | # | Item | Tier | Status |
 |---|------|------|--------|
-| 1 | Persist jobs to DB | Foundation | pending |
-| 2 | `.env` out of version control | Foundation | pending |
-| 3 | Wire up Alembic migrations | Foundation | pending |
-| 4 | Wire up Celery end-to-end | Patterns | pending |
-| 5 | Move rate limiters to Redis | Patterns | pending |
-| 6 | Pydantic Settings (fail-fast config) | Operations | pending |
-| 7 | Health check with dependency probes | Operations | pending |
-| 8 | Structured logging + request IDs | Operations | pending |
-| 9 | ARCHITECTURE.md decision rationale | Polish | pending |
-| 10 | Replace Wikipedia scraper with API | Polish | pending |
-| 11 | Backtest result diffing | Feature | pending |
+| 1 | Persist jobs to DB | Foundation | complete |
+| 2 | `.env` out of version control | Foundation | complete |
+| 3 | Wire up Alembic migrations | Foundation | complete |
+| 4 | Wire up Celery end-to-end | Patterns | complete |
+| 5 | Move rate limiters to Redis | Patterns | complete |
+| 6 | Pydantic Settings (fail-fast config) | Operations | complete |
+| 7 | Health check with dependency probes | Operations | complete |
+| 8 | Structured logging + request IDs | Operations | complete |
+| 9 | ARCHITECTURE.md decision rationale | Polish | complete |
+| 10 | Replace Wikipedia scraper with API | Polish | complete |
+| 11 | Backtest result diffing | Feature | complete |
 
 ---
 

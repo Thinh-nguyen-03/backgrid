@@ -1,6 +1,6 @@
 # Backgrid - Backtesting Engine
 
-**Status**: **Phase 2 - Week 8 COMPLETE** (UI Modernization)
+**Status**: **Phase 3 - Engineering Hardening COMPLETE** (2026-02-28)
 
 **Goal**: Build a real backtesting platform from scratch, evolving from monolith to distributed system
 
@@ -38,13 +38,17 @@ Open browser to http://localhost:8000
 graph TD
     A[Client] -->|POST /jobs| B[FastAPI API]
     B -->|Sync call| C[Backtest Engine]
-    C -->|yfinance| D[Yahoo Finance]
-    C -->|In-memory| E[(Job Results)]
+    B -->|202 + batch_id| D[Celery Worker]
+    C & D -->|persist| E[(SQLite / PostgreSQL)]
+    D -->|fetch| F[yfinance]
 ```
 
 ### Features Implemented
 - **Modern Web UI** (Vite + vanilla JS, Chart.js equity curves, brutalist design)
-- **9 REST API endpoints** (health, submit job, get job, portfolio, trades, multi-strategy, symbols, sectors, portfolio trades)
+- **10+ REST API endpoints** including health probes, single/portfolio backtests, diff endpoint, trade ledger, strategy import
+- **Async portfolio backtests** via Celery + Redis — POST returns 202 immediately, poll for completion
+- **Backtest diff endpoint**: `GET /api/v1/backtest/diff?a=&b=` — parameter and metric deltas between two runs
+- **Full DB persistence**: All jobs and portfolio results survive server restarts (SQLite or PostgreSQL)
 - **Symbol browsing**: Browse 503 S&P 500 symbols organized by 11 GICS sectors with collapsible groups and search
 - **Multiple trading strategies**:
   - MA Crossover with configurable periods
@@ -53,17 +57,12 @@ graph TD
 - **Pluggable data loaders**: Yahoo Finance + PostgreSQL (RapidTrader) + S&P 500 (us500.com with Wikipedia fallback)
 - **ATR-based position sizing** with volatility-adjusted risk
 - **Transaction cost modeling**: commission, spread, slippage
-- **Risk management**:
-  - Market regime filter (SPY 200-SMA bull/bear detection)
-  - ATR-based stop losses with cooldown periods
-  - Sector concentration limits (30% max per sector)
-  - Portfolio heat tracking (aggregate risk exposure)
-- **Real market data** from Yahoo Finance or RapidTrader PostgreSQL
-- **Performance metrics**: Sharpe ratio, max drawdown, total return, win rate
-- **Full equity curves** and trade ledger
-- **Comprehensive error handling** and validation
-- **660 passing unit tests** across all modules
-- **Automated smoke tests** for end-to-end verification
+- **Risk management**: market regime filter, ATR stop losses, sector limits, portfolio heat tracking
+- **Structured JSON logging** with per-request UUID (`X-Request-ID` header)
+- **Health check with dependency probes**: active DB + Redis ping, 503 on database failure
+- **Centralized config** via Pydantic Settings (`src/config.py`)
+- **Redis rate limiting** for LLM extraction (fail-open, survives restarts)
+- **660+ passing unit tests** across all modules
 
 ### Performance (Measured)
 - **Latency**: 2-3 seconds per backtest
@@ -106,8 +105,6 @@ pytest tests/ --cov=src --cov-report=html
 
 ## Known Limitations (Current Phase)
 
-- **Synchronous portfolio execution** - Large batch backtests may be slow without Celery workers
-- **In-memory storage for single jobs** - Legacy single-symbol results not persisted (use portfolio API for persistence)
 - **No authentication** - Open API (single-user mode)
 - **Frontend requires Node.js** - `npm install` and `npm run build` needed for the Web UI
 - **Batch performance** - 500+ symbol portfolio target not yet validated at scale
@@ -121,20 +118,23 @@ These are **intentional** - Each phase adds complexity based on measured need.
 ```
 backgrid/
 ├── src/
-│   ├── api.py              # FastAPI endpoints + static file mount
-│   ├── api_portfolio.py    # Portfolio and multi-strategy endpoints
+│   ├── api.py              # FastAPI app, health probe, request ID middleware
+│   ├── api_portfolio.py    # Portfolio, multi-strategy, diff endpoints
+│   ├── api_extraction.py   # LLM strategy import (Redis rate-limited)
+│   ├── config.py           # Pydantic Settings (single source of env config)
+│   ├── logging_config.py   # JSON log formatter + configure_logging()
 │   ├── backtest.py         # Core backtesting engine (legacy + enhanced)
 │   ├── models.py           # Pydantic request/response models
-│   ├── db.py               # SQLAlchemy database models
+│   ├── db.py               # SQLAlchemy models + CRUD helpers
 │   ├── ui.py               # SPA serving from frontend/dist/
 │   ├── worker.py           # Celery worker tasks
-│   ├── sp500.py            # S&P 500 symbol data (us500.com + Wikipedia fallback)
+│   ├── sp500.py            # S&P 500 symbol data
 │   ├── strategies/         # Pluggable strategy framework
 │   ├── data/               # Pluggable data loaders
 │   ├── position_sizing/    # Volatility-adjusted sizing
 │   ├── execution/          # Order fill simulation
 │   ├── risk/               # Portfolio risk controls
-│   └── portfolio/          # Portfolio state and trade ledger
+│   └── portfolio/          # Portfolio state, trade ledger, runner
 ├── frontend/
 │   ├── src/
 │   │   ├── index.html          # Main HTML shell
@@ -160,11 +160,13 @@ backgrid/
 **Interactive API Docs**: http://localhost:8000/docs
 
 **Key Endpoints:**
-- `GET /api/v1/health` - Health check
-- `POST /api/v1/jobs` - Submit single-symbol backtest
-- `POST /api/v1/backtest/portfolio` - Portfolio backtest
+- `GET /api/v1/health` - Health check with DB + Redis probes
+- `POST /api/v1/jobs` - Submit single-symbol backtest (synchronous)
+- `POST /api/v1/backtest/portfolio` - Portfolio backtest (202 async)
+- `GET /api/v1/backtest/diff?a=&b=` - Diff two portfolio runs
 - `POST /api/v1/backtest/multi-strategy` - Multi-strategy combination
 - `GET /api/v1/symbols` - List S&P 500 symbols by sector
+- `POST /api/v1/strategy/import` - LLM-assisted strategy extraction
 
 **For complete API documentation:** See [docs/API.md](docs/API.md)
 
@@ -190,16 +192,15 @@ backgrid/
 
 ## What's Next
 
-### Phase 3: Performance & Scale
-**When**: After profiling shows specific bottlenecks
+### Phase 4: Performance & Scale
+**When**: After profiling shows specific bottlenecks or multiple users are needed
 **What**: Go gRPC service for metrics, TimescaleDB for time-series, JWT auth
 **Why**: Only add complexity when measurements prove it's needed
 
-### Phase 3 Candidates
+### Phase 4 Candidates
 - **Go gRPC Metrics Service** - When metrics calculation >50% of runtime
 - **TimescaleDB** - When PostgreSQL queries slow on 10M+ equity curve rows
 - **JWT Authentication** - When multiple users need data isolation
-- **Mobile responsive UI** - When mobile access is needed
 
 See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for detailed evolution plan.
 
