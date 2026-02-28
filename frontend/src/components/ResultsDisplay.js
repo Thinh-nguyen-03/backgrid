@@ -30,25 +30,25 @@ export class ResultsDisplay {
 
   showSingleResult(data) {
     const cards = [
-      { label: 'Sharpe Ratio', value: fmtNum(data.sharpe, 3), primary: true },
-      { label: 'Total Return', value: fmtPct(data.total_return), cls: colorClass(data.total_return) },
-      { label: 'Max Drawdown', value: fmtPct(data.max_drawdown), cls: 'text-red' },
-      { label: 'Runtime', value: fmtNum(data.runtime_seconds, 2) + 's' },
+      { label: 'Sharpe Ratio', value: fmtNum(data.sharpe, 3), primary: true, cardClass: 'kpi-card--sharpe' },
+      { label: 'Total Return', value: fmtPct(data.total_return), cls: colorClass(data.total_return), cardClass: 'kpi-card--return' },
+      { label: 'Max Drawdown', value: fmtPct(data.max_drawdown), cls: 'text-red', cardClass: 'kpi-card--drawdown' },
+      { label: 'Runtime', value: fmtNum(data.runtime_seconds, 2) + 's', cardClass: 'kpi-card--neutral' },
     ];
 
     if (data.total_trades != null && data.total_trades > 0) {
-      cards.push({ label: 'Total Trades', value: data.total_trades.toString() });
+      cards.push({ label: 'Total Trades', value: data.total_trades.toString(), cardClass: 'kpi-card--neutral' });
     }
     if (data.win_rate != null && data.win_rate > 0) {
-      cards.push({ label: 'Win Rate', value: fmtPct(data.win_rate) });
+      cards.push({ label: 'Win Rate', value: fmtPct(data.win_rate), cardClass: 'kpi-card--neutral' });
     }
     if (data.total_transaction_costs != null) {
-      cards.push({ label: 'Tx Costs', value: '$' + fmtNum(data.total_transaction_costs, 2) });
+      cards.push({ label: 'Tx Costs', value: '$' + fmtNum(data.total_transaction_costs, 2), cardClass: 'kpi-card--neutral' });
     }
 
     let extra = '';
     if (data.strategies_used) {
-      extra = `<div style="font-family:var(--font-mono);font-size:0.8rem;color:var(--color-text-sub);">
+      extra = `<div class="result-meta">
         Strategies: ${data.strategies_used.join(', ')} | Method: ${data.combination_method || 'N/A'}
       </div>`;
     }
@@ -59,7 +59,7 @@ export class ResultsDisplay {
       ${extra}
       <div class="kpi-grid">
         ${cards.map(c => `
-          <div class="kpi-card ${c.primary ? 'kpi-card--primary' : ''}">
+          <div class="kpi-card ${c.primary ? 'kpi-card--primary' : ''} ${c.cardClass || ''}">
             <div class="kpi-card__label">${c.label}</div>
             <div class="kpi-card__value ${c.cls || ''}">${c.value}</div>
           </div>

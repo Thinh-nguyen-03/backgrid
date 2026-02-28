@@ -74,12 +74,31 @@ export class ExecutionConfig {
   attachEvents() {
     const sizingSelect = this.container.querySelector('#positionSizing');
     sizingSelect.addEventListener('change', () => {
-      this.container.querySelector('#atrParams').classList.toggle('hidden', sizingSelect.value !== 'atr');
+      const isAtr = sizingSelect.value === 'atr';
+      const atrParams = this.container.querySelector('#atrParams');
+      atrParams.classList.toggle('hidden', !isAtr);
+
+      // Disable hidden inputs to prevent validation errors
+      atrParams.querySelectorAll('input').forEach(input => {
+        input.disabled = !isAtr;
+      });
     });
 
     const txCheck = this.container.querySelector('#enableTxCosts');
     txCheck.addEventListener('change', () => {
-      this.container.querySelector('#txCostParams').classList.toggle('hidden', !txCheck.checked);
+      const isEnabled = txCheck.checked;
+      const txParams = this.container.querySelector('#txCostParams');
+      txParams.classList.toggle('hidden', !isEnabled);
+
+      // Disable hidden inputs to prevent validation errors
+      txParams.querySelectorAll('input').forEach(input => {
+        input.disabled = !isEnabled;
+      });
+    });
+
+    // Initialize disabled state for hidden sections
+    this.container.querySelector('#atrParams').querySelectorAll('input').forEach(input => {
+      input.disabled = true;
     });
   }
 

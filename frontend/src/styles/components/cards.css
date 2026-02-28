@@ -75,6 +75,33 @@
   color: var(--color-ink);
 }
 
+.kpi-card--return {
+  background: var(--color-success);
+}
+
+.kpi-card--return .kpi-card__label,
+.kpi-card--return .kpi-card__value {
+  color: #ffffff;
+  border-bottom-color: #ffffff;
+}
+
+.kpi-card--drawdown {
+  background: var(--color-error);
+}
+
+.kpi-card--drawdown .kpi-card__label,
+.kpi-card--drawdown .kpi-card__value {
+  color: #ffffff;
+  border-bottom-color: #ffffff;
+}
+
+.result-meta {
+  font-family: var(--font-mono);
+  font-size: 0.8rem;
+  color: var(--color-text-sub);
+  margin-bottom: 1rem;
+}
+
 .console-output {
   background: var(--bg-panel);
   border: var(--border-thick);
@@ -150,6 +177,88 @@
 
 body.dark-mode .log-section {
   background: #2a2a2a;
+}
+
+body.dark-mode .kpi-card {
+  background: #1f1f1f;
+  border-color: #ffffff;
+  box-shadow: 6px 6px 0px #ffffff;
+}
+
+body.dark-mode .kpi-card--primary {
+  background: var(--color-accent-pop);
+  border-color: #020617;
+  box-shadow: 8px 8px 0px #020617;
+}
+
+body.dark-mode .kpi-card__label {
+  color: #ffffff;
+  border-bottom-color: #ffffff;
+}
+
+body.dark-mode .kpi-card--primary .kpi-card__label {
+  color: #020617;
+  border-bottom-color: #020617;
+}
+
+body.dark-mode .kpi-card__value {
+  color: #ffffff;
+}
+
+body.dark-mode .console-output {
+  background: #1f1f1f;
+  border-color: #ffffff;
+  box-shadow: 6px 6px 0px #ffffff;
+}
+
+body.dark-mode .console-output__json {
+  color: #ffffff;
+}
+
+body.dark-mode .log-item__label {
+  color: #a8a8a8;
+}
+
+body.dark-mode .log-item__value {
+  color: #ffffff;
+}
+
+body.dark-mode .empty-state {
+  background: rgba(31, 31, 31, 0.8);
+  color: #ffffff;
+  border-color: #ffffff;
+}
+
+body.dark-mode .chart-wrapper {
+  background: #1f1f1f;
+  border-color: #ffffff;
+  box-shadow: 6px 6px 0px #ffffff;
+}
+
+body.dark-mode .chart-title {
+  color: #ffffff;
+}
+
+body.dark-mode .result-meta {
+  color: #a8a8a8;
+}
+
+body.dark-mode .kpi-card--return {
+  background: var(--color-success);
+  border-color: #ffffff;
+  box-shadow: 6px 6px 0px #ffffff;
+}
+
+body.dark-mode .kpi-card--drawdown {
+  background: var(--color-error);
+  border-color: #ffffff;
+  box-shadow: 6px 6px 0px #ffffff;
+}
+
+body.dark-mode .kpi-card--neutral {
+  background: #1f1f1f;
+  border-color: #ffffff;
+  box-shadow: 6px 6px 0px #ffffff;
 }
 
 .log-section__header {

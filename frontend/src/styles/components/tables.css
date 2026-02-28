@@ -119,3 +119,34 @@
   opacity: 0.3;
   cursor: not-allowed;
 }
+
+body.dark-mode .data-table {
+  background: #1f1f1f;
+  border-color: #ffffff;
+  box-shadow: 6px 6px 0px #ffffff;
+}
+
+body.dark-mode .data-table thead {
+  background: #ffffff;
+  color: #020617;
+}
+
+body.dark-mode .data-table td {
+  color: #ffffff;
+  border-bottom-color: #444444;
+}
+
+body.dark-mode .data-table tr:hover td {
+  background: #2a2a2a;
+}
+
+body.dark-mode .portfolio-summary {
+  border-color: #020617;
+  box-shadow: 8px 8px 0px #020617;
+}
+
+body.dark-mode .pagination button {
+  background: #ffffff;
+  color: #020617;
+  border-color: #ffffff;
+}

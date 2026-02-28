@@ -86,6 +86,31 @@ body.dark-mode .menu-toggle:hover {
   gap: 1rem;
 }
 
+.btn-import {
+  background: var(--color-accent-pop);
+  color: var(--color-ink);
+  border: var(--border-thick);
+  font-family: var(--font-head);
+  font-size: 0.8rem;
+  font-weight: 800;
+  padding: 0.5rem 1rem;
+  text-transform: uppercase;
+  cursor: pointer;
+  box-shadow: 4px 4px 0px var(--color-ink);
+  transition: all 0.1s;
+}
+
+.btn-import:hover {
+  transform: translate(-2px, -2px);
+  box-shadow: 6px 6px 0px var(--color-ink);
+  background: var(--color-accent-secondary);
+}
+
+.btn-import:active {
+  transform: translate(2px, 2px);
+  box-shadow: none;
+}
+
 .btn-help,
 .btn-theme {
   background: var(--color-accent-secondary);
@@ -115,4 +140,26 @@ body.dark-mode .menu-toggle:hover {
 .btn-theme:active {
   transform: translate(2px, 2px);
   box-shadow: none;
+}
+
+body.dark-mode .btn-import {
+  border-color: #555;
+  box-shadow: 4px 4px 0px #555;
+  color: #fff;
+}
+
+body.dark-mode .btn-import:hover {
+  box-shadow: 6px 6px 0px #555;
+}
+
+body.dark-mode .btn-help,
+body.dark-mode .btn-theme {
+  border-color: #555;
+  box-shadow: 4px 4px 0px #555;
+  color: #fff;
+}
+
+body.dark-mode .btn-help:hover,
+body.dark-mode .btn-theme:hover {
+  box-shadow: 6px 6px 0px #555;
 }

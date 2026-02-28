@@ -16,3 +16,11 @@ psycopg2-binary>=2.9.11  # 2.9.11+ has pre-built wheels for Python 3.13
 alembic==1.13.1
 SQLAlchemy>=2.0.25  # 2.0.25+ required for Python 3.13 compatibility
 python-dotenv==1.0.0  # Load environment variables from .env file
+
+# Phase 2.5 - Strategy Import (LLM Extraction)
+anthropic>=0.39.0
+PyPDF2>=3.0.0
+python-multipart>=0.0.6  # Required for FastAPI file uploads
+
+# Phase 3 - S&P 500 History (headless browser for JS-rendered pages)
+playwright>=1.40.0

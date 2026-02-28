@@ -279,6 +279,16 @@ class SymbolResultModel(BaseModel):
     error: Optional[str] = Field(None, description="Error message if failed")
 
 
+class SurvivorshipContext(BaseModel):
+    """Survivorship bias analysis attached to portfolio backtest results."""
+    validation_performed: bool = False
+    bias_risk: Optional[str] = Field(None, description="none, low, medium, high, or unknown")
+    full_members: Optional[List[str]] = Field(None, description="Symbols with full S&P 500 coverage")
+    partial_members_count: Optional[int] = None
+    non_members_count: Optional[int] = None
+    bias_summary: Optional[str] = None
+
+
 class PortfolioBacktestResponse(BaseModel):
     """Response model for portfolio backtest results."""
     batch_id: str = Field(..., description="Unique batch identifier")
@@ -300,6 +310,9 @@ class PortfolioBacktestResponse(BaseModel):
     )
     results_by_symbol: Optional[Dict[str, SymbolResultModel]] = Field(
         None, description="Per-symbol results"
+    )
+    survivorship_context: Optional[SurvivorshipContext] = Field(
+        None, description="Survivorship bias analysis for the portfolio"
     )
     error: Optional[str] = Field(None, description="Error message if failed")
     created_at: Optional[datetime] = Field(None, description="Creation timestamp")

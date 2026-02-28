@@ -170,6 +170,24 @@ backgrid/
 
 ---
 
+## Documentation
+
+**Core Documentation:**
+- [SETUP.md](docs/SETUP.md) - Installation, deployment, configuration
+- [ARCHITECTURE.md](docs/ARCHITECTURE.md) - System design and evolution plan
+- [API.md](docs/API.md) - Complete API reference
+- [DECISION_LOG.md](docs/DECISION_LOG.md) - Every major decision documented with measurements
+- [STRATEGY_SDK.md](docs/STRATEGY_SDK.md) - Guide to implementing custom strategies
+- [GLOSSARY.md](docs/GLOSSARY.md) - Technical terms and financial metrics
+- [DATA_MODEL.md](docs/DATA_MODEL.md) - Database schema and entity relationships
+- [CODING_STANDARDS.md](docs/CODING_STANDARDS.md) - Style guide and conventions
+- [KNOWN_LIMITATIONS.md](docs/KNOWN_LIMITATIONS.md) - Current constraints and future plans
+
+**Design Documents:**
+- [STRATEGY_IMPORT_DESIGN.md](docs/STRATEGY_IMPORT_DESIGN.md) - Strategy preset library + LLM-assisted parameter extraction (Phase 2.5 design)
+
+---
+
 ## What's Next
 
 ### Phase 3: Performance & Scale

@@ -22,6 +22,7 @@ from .models import (
     SymbolListResponse,
     SymbolInfo,
     SymbolResultModel,
+    SurvivorshipContext,
     JobStatus,
 )
 from .db import (
@@ -237,6 +238,25 @@ async def submit_portfolio_backtest(
 
         db.refresh(portfolio)
 
+        # Survivorship bias validation
+        survivorship_ctx = None
+        try:
+            from .sp500_history import get_sp500_history
+            history = get_sp500_history()
+            validation = history.validate_symbols(
+                request.symbols, request.start, request.end or ""
+            )
+            survivorship_ctx = SurvivorshipContext(
+                validation_performed=True,
+                bias_risk=validation.survivorship_bias_risk,
+                full_members=validation.full_members,
+                partial_members_count=len(validation.partial_members),
+                non_members_count=len(validation.non_members),
+                bias_summary=validation.bias_summary,
+            )
+        except Exception as e:
+            logger.debug(f"Survivorship validation skipped: {e}")
+
         results_by_symbol = {}
         for r in result["successful"]:
             results_by_symbol[r["symbol"]] = SymbolResultModel(
@@ -268,6 +288,7 @@ async def submit_portfolio_backtest(
             runtime_seconds=portfolio.runtime_seconds,
             portfolio_equity_curve=portfolio.portfolio_equity_curve,
             results_by_symbol=results_by_symbol,
+            survivorship_context=survivorship_ctx,
             created_at=portfolio.created_at,
         )
 

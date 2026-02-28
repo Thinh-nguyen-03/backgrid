@@ -242,6 +242,18 @@ body.dark-mode .help-card:hover {
   box-shadow: 5px 5px 0px #ffffff;
 }
 
+body.dark-mode .help-card__value {
+  color: #ffffff;
+}
+
+body.dark-mode .help-card__desc {
+  color: #a8a8a8;
+}
+
+body.dark-mode .help-tip {
+  color: #020617;
+}
+
 /* Symbol Selector */
 
 .symbol-selector-toolbar {
@@ -435,4 +447,16 @@ body.dark-mode .symbol-row:hover {
 
 body.dark-mode .symbol-row--checked {
   background: rgba(255,230,0,0.1);
+}
+
+body.dark-mode .symbol-selected-count {
+  color: #a8a8a8;
+}
+
+body.dark-mode .symbol-row__name {
+  color: #a8a8a8;
+}
+
+body.dark-mode .symbol-row__ticker {
+  color: #ffffff;
 }

@@ -20,6 +20,9 @@ try:
     from .ui import router as ui_router, mount_static_files
     from .api_portfolio import router as portfolio_router
     from .api_portfolio import symbols_router
+    from .api_presets import router as presets_router
+    from .api_extraction import router as extraction_router
+    from .api_sp500_history import router as sp500_history_router
 except ImportError:
     from models import (
         BacktestRequest,
@@ -33,6 +36,9 @@ except ImportError:
     from ui import router as ui_router, mount_static_files
     from api_portfolio import router as portfolio_router
     from api_portfolio import symbols_router
+    from api_presets import router as presets_router
+    from api_extraction import router as extraction_router
+    from api_sp500_history import router as sp500_history_router
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -58,6 +64,9 @@ app = FastAPI(
 app.include_router(ui_router)
 app.include_router(portfolio_router)
 app.include_router(symbols_router)
+app.include_router(presets_router)
+app.include_router(extraction_router)
+app.include_router(sp500_history_router)
 mount_static_files(app)
 
 

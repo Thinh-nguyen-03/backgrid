@@ -177,3 +177,19 @@ body.dark-mode .history-item {
 body.dark-mode .history-item:hover {
   box-shadow: 5px 5px 0px #ffffff;
 }
+
+body.dark-mode .history-item__symbol {
+  color: #ffffff;
+}
+
+body.dark-mode .history-item__details {
+  color: #a8a8a8;
+}
+
+body.dark-mode .history-item__timestamp {
+  color: #a8a8a8;
+}
+
+body.dark-mode .history-item__divider {
+  color: #ffffff;
+}
