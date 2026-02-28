@@ -1,15 +1,11 @@
-"""Portfolio API endpoints (Week 6)
-
-Provides endpoints for portfolio backtesting, multi-strategy backtests,
-and symbol listing.
-"""
+"""Portfolio API endpoints."""
 
 import logging
 import uuid
 from datetime import datetime, timezone
 from typing import Optional, Dict, Any, List
 
-from fastapi import APIRouter, HTTPException, Depends, Query, BackgroundTasks
+from fastapi import APIRouter, HTTPException, Depends, Query, Response
 from sqlalchemy.orm import Session
 
 from .models import (
@@ -33,8 +29,6 @@ from .db import (
     create_portfolio_result,
     update_portfolio_result,
     get_portfolio_result,
-    create_symbol_result,
-    create_trade_entry,
     get_trades_for_batch,
 )
 from .backtest import (
@@ -46,7 +40,6 @@ from .backtest import (
     calculate_total_return,
     _signals_to_positions,
 )
-from .portfolio.metrics import aggregate_equity_curves
 
 logger = logging.getLogger(__name__)
 
@@ -70,140 +63,17 @@ def _generate_trade_id(batch_id: str, symbol: str, index: int) -> str:
     return f"{batch_id}-{symbol}-{index}"
 
 
-def _run_portfolio_backtest_sync(
-    batch_id: str,
-    symbols: List[str],
-    strategy: str,
-    params: Optional[Dict[str, Any]],
-    start_date: str,
-    end_date: Optional[str],
-    config_dict: Optional[Dict[str, Any]],
-    db: Session,
-) -> Dict[str, Any]:
-    """Run portfolio backtest synchronously and store results."""
-    from .data import YahooDataLoader
-
-    update_portfolio_result(db, batch_id, {
-        "status": "running",
-        "started_at": datetime.now(timezone.utc),
-    })
-
-    loader = YahooDataLoader()
-    config = BacktestConfig(**(config_dict or {}))
-
-    results = []
-    all_trades = []
-    failed_symbols = []
-    symbol_curves = {}
-
-    for symbol in symbols:
-        result_id = _generate_result_id(batch_id, symbol)
-        try:
-            df = loader.load(symbol, start_date, end_date)
-
-            if df.empty:
-                create_symbol_result(db, result_id, batch_id, symbol, {
-                    "status": "error",
-                    "error": "No data available",
-                })
-                failed_symbols.append(symbol)
-                continue
-
-            backtest_result = run_backtest_enhanced(df, strategy, params or {}, config, symbol)
-
-            curve = backtest_result.equity_curve
-            symbol_curves[symbol] = curve
-
-            symbol_data = {
-                "status": "completed",
-                "job_id": backtest_result.job_id,
-                "sharpe": backtest_result.sharpe,
-                "max_drawdown": backtest_result.max_drawdown,
-                "total_return": backtest_result.total_return,
-                "total_trades": backtest_result.total_trades,
-                "win_rate": backtest_result.win_rate,
-                "total_transaction_costs": backtest_result.total_transaction_costs,
-                "runtime_seconds": backtest_result.runtime_seconds,
-                "equity_curve": curve,
-            }
-            create_symbol_result(db, result_id, batch_id, symbol, symbol_data)
-
-            results.append({
-                "symbol": symbol,
-                **symbol_data,
-            })
-
-            for i, trade in enumerate(backtest_result.trades):
-                trade_id = _generate_trade_id(batch_id, symbol, i)
-                create_trade_entry(db, trade_id, batch_id, trade.to_dict())
-                all_trades.append(trade.to_dict())
-
-        except Exception as e:
-            logger.error(f"Backtest failed for {symbol}: {e}")
-            create_symbol_result(db, result_id, batch_id, symbol, {
-                "status": "error",
-                "error": str(e),
-            })
-            failed_symbols.append(symbol)
-
-    successful = [r for r in results if r.get("status") == "completed"]
-    sharpes = [r.get("sharpe", 0) for r in successful]
-    returns = [r.get("total_return", 0) for r in successful]
-    drawdowns = [r.get("max_drawdown", 0) for r in successful]
-
-    avg_sharpe = sum(sharpes) / len(sharpes) if sharpes else 0.0
-    avg_return = sum(returns) / len(returns) if returns else 0.0
-    avg_drawdown = sum(drawdowns) / len(drawdowns) if drawdowns else 0.0
-
-    best_symbol = max(successful, key=lambda x: x.get("total_return", 0)).get("symbol") if successful else None
-    worst_symbol = min(successful, key=lambda x: x.get("total_return", 0)).get("symbol") if successful else None
-
-    total_trades = sum(r.get("total_trades", 0) for r in successful)
-
-    initial_capital = (config_dict or {}).get("initial_capital", 10000.0)
-    portfolio_curve = aggregate_equity_curves(symbol_curves, initial_capital)
-
-    update_portfolio_result(db, batch_id, {
-        "status": "completed",
-        "finished_at": datetime.now(timezone.utc),
-        "symbols_completed": len(successful),
-        "symbols_failed": len(failed_symbols),
-        "failed_symbols": failed_symbols if failed_symbols else None,
-        "symbol_count": len(successful),
-        "total_trades": total_trades,
-        "average_sharpe": round(avg_sharpe, 4),
-        "average_return": round(avg_return, 4),
-        "average_max_drawdown": round(avg_drawdown, 4),
-        "best_symbol": best_symbol,
-        "worst_symbol": worst_symbol,
-        "portfolio_equity_curve": portfolio_curve if portfolio_curve else None,
-    })
-
-    return {
-        "successful": successful,
-        "failed_symbols": failed_symbols,
-    }
-
-
-@router.post("/portfolio", response_model=PortfolioBacktestResponse)
+@router.post("/portfolio", response_model=PortfolioBacktestResponse, status_code=202)
 async def submit_portfolio_backtest(
     request: PortfolioBacktestRequest,
-    background_tasks: BackgroundTasks,
     db: Session = Depends(get_db),
 ):
+    """Submit a portfolio backtest job for async execution.
+
+    Returns 202 Accepted immediately. Poll GET /portfolio/{batch_id} for status.
     """
-    Submit a portfolio backtest job.
+    from .worker import run_portfolio_backtest_task
 
-    Runs backtest across multiple symbols with the same strategy and
-    aggregates results. For large portfolios (>10 symbols), consider
-    using async execution with Celery workers.
-
-    Args:
-        request: Portfolio backtest request with symbols and strategy
-
-    Returns:
-        Portfolio backtest results with aggregated metrics
-    """
     batch_id = _generate_batch_id()
 
     logger.info(
@@ -224,85 +94,22 @@ async def submit_portfolio_backtest(
         config=config_dict,
     )
 
-    try:
-        result = _run_portfolio_backtest_sync(
-            batch_id=batch_id,
-            symbols=request.symbols,
-            strategy=request.strategy.value,
-            params=request.params,
-            start_date=request.start,
-            end_date=request.end,
-            config_dict=config_dict,
-            db=db,
-        )
+    run_portfolio_backtest_task.delay(
+        batch_id=batch_id,
+        symbols=request.symbols,
+        strategy=request.strategy.value,
+        params=request.params,
+        start_date=request.start,
+        end_date=request.end,
+        config_dict=config_dict,
+    )
 
-        db.refresh(portfolio)
-
-        # Survivorship bias validation
-        survivorship_ctx = None
-        try:
-            from .sp500_history import get_sp500_history
-            history = get_sp500_history()
-            validation = history.validate_symbols(
-                request.symbols, request.start, request.end or ""
-            )
-            survivorship_ctx = SurvivorshipContext(
-                validation_performed=True,
-                bias_risk=validation.survivorship_bias_risk,
-                full_members=validation.full_members,
-                partial_members_count=len(validation.partial_members),
-                non_members_count=len(validation.non_members),
-                bias_summary=validation.bias_summary,
-            )
-        except Exception as e:
-            logger.debug(f"Survivorship validation skipped: {e}")
-
-        results_by_symbol = {}
-        for r in result["successful"]:
-            results_by_symbol[r["symbol"]] = SymbolResultModel(
-                symbol=r["symbol"],
-                status=r["status"],
-                sharpe=r.get("sharpe"),
-                max_drawdown=r.get("max_drawdown"),
-                total_return=r.get("total_return"),
-                total_trades=r.get("total_trades"),
-                win_rate=r.get("win_rate"),
-                total_transaction_costs=r.get("total_transaction_costs"),
-                equity_curve=r.get("equity_curve"),
-            )
-
-        return PortfolioBacktestResponse(
-            batch_id=batch_id,
-            status=JobStatus.COMPLETED,
-            symbols_requested=portfolio.symbols_requested,
-            symbols_completed=portfolio.symbols_completed,
-            symbols_failed=portfolio.symbols_failed,
-            failed_symbols=portfolio.failed_symbols,
-            symbol_count=portfolio.symbol_count,
-            total_trades=portfolio.total_trades,
-            average_sharpe=portfolio.average_sharpe,
-            average_return=portfolio.average_return,
-            average_max_drawdown=portfolio.average_max_drawdown,
-            best_symbol=portfolio.best_symbol,
-            worst_symbol=portfolio.worst_symbol,
-            runtime_seconds=portfolio.runtime_seconds,
-            portfolio_equity_curve=portfolio.portfolio_equity_curve,
-            results_by_symbol=results_by_symbol,
-            survivorship_context=survivorship_ctx,
-            created_at=portfolio.created_at,
-        )
-
-    except Exception as e:
-        logger.error(f"Portfolio backtest failed: {e}")
-        update_portfolio_result(db, batch_id, {
-            "status": "failed",
-            "error": str(e),
-            "finished_at": datetime.now(timezone.utc),
-        })
-        raise HTTPException(
-            status_code=500,
-            detail=f"Portfolio backtest failed: {str(e)}"
-        )
+    return PortfolioBacktestResponse(
+        batch_id=batch_id,
+        status=JobStatus.PENDING,
+        symbols_requested=portfolio.symbols_requested,
+        created_at=portfolio.created_at,
+    )
 
 
 @router.get("/portfolio/{batch_id}", response_model=PortfolioBacktestResponse)

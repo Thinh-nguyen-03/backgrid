@@ -4,7 +4,7 @@ import logging
 import os
 import sys
 from typing import Dict, Any, List, Optional
-from datetime import datetime
+from datetime import datetime, timezone
 
 from celery import Celery, group
 
@@ -188,6 +188,49 @@ def aggregate_results(results: List[Dict[str, Any]]) -> Dict[str, Any]:
     """
     from .portfolio.metrics import aggregate_symbol_results
     return aggregate_symbol_results(results)
+
+
+@app.task(bind=True, name="backgrid.run_portfolio_backtest_task")
+def run_portfolio_backtest_task(
+    self,
+    batch_id: str,
+    symbols: List[str],
+    strategy: str,
+    params: Optional[Dict[str, Any]],
+    start_date: str,
+    end_date: Optional[str],
+    config_dict: Optional[Dict[str, Any]],
+) -> Dict[str, Any]:
+    """Run portfolio backtest as an async task, persisting results to the DB.
+
+    Status lifecycle: pending → running → completed / failed
+    """
+    from .db import SessionLocal, update_portfolio_result
+    from .portfolio.runner import run_portfolio_backtest_sync
+
+    db = SessionLocal()
+    try:
+        result = run_portfolio_backtest_sync(
+            batch_id=batch_id,
+            symbols=symbols,
+            strategy=strategy,
+            params=params,
+            start_date=start_date,
+            end_date=end_date,
+            config_dict=config_dict,
+            db=db,
+        )
+        return {"batch_id": batch_id, "status": "completed", **result}
+    except Exception as exc:
+        logger.error(f"Portfolio backtest task failed for {batch_id}: {exc}")
+        update_portfolio_result(db, batch_id, {
+            "status": "failed",
+            "error": str(exc),
+            "finished_at": datetime.now(timezone.utc),
+        })
+        raise
+    finally:
+        db.close()
 
 
 @app.task

@@ -1,4 +1,4 @@
-"""Unit tests for portfolio API endpoints (Week 6)"""
+"""Unit tests for portfolio API endpoints."""
 
 import pytest
 import pandas as pd
@@ -8,11 +8,21 @@ from fastapi.testclient import TestClient
 
 from src.db import Base, engine, SessionLocal, PortfolioResult, SymbolResult, TradeLedgerEntry
 from src.api import app
+from src.worker import app as celery_app
+
+
+@pytest.fixture(scope="module", autouse=True)
+def configure_celery():
+    """Run Celery tasks synchronously during tests (no worker required)."""
+    celery_app.conf.task_always_eager = True
+    celery_app.conf.task_eager_propagates = True
+    yield
+    celery_app.conf.task_always_eager = False
 
 
 @pytest.fixture(scope="module")
 def test_db():
-    """Create test database tables."""
+    """Create test database tables once per module."""
     Base.metadata.create_all(bind=engine)
     yield
     Base.metadata.drop_all(bind=engine)
@@ -20,7 +30,7 @@ def test_db():
 
 @pytest.fixture
 def db_session(test_db):
-    """Get database session for each test."""
+    """Database session with per-test cleanup."""
     session = SessionLocal()
     yield session
     session.rollback()
@@ -33,13 +43,13 @@ def db_session(test_db):
 
 @pytest.fixture
 def client(test_db):
-    """Create test client."""
+    """Test client."""
     return TestClient(app)
 
 
 @pytest.fixture
 def sample_ohlcv_data():
-    """Create sample OHLCV data for mocking."""
+    """Sample OHLCV data for mocking."""
     dates = pd.date_range(start='2023-01-01', periods=100, freq='D')
     data = {
         'Open': [100 + i * 0.1 for i in range(100)],
@@ -56,7 +66,7 @@ class TestPortfolioBacktestEndpoint:
 
     @patch('src.data.YahooDataLoader')
     def test_submit_portfolio_backtest_success(self, mock_loader_class, client, sample_ohlcv_data):
-        """Test successful portfolio backtest submission."""
+        """Submission returns 202 immediately; task executes synchronously via always_eager."""
         mock_loader = Mock()
         mock_loader.load.return_value = sample_ohlcv_data
         mock_loader_class.return_value = mock_loader
@@ -72,16 +82,14 @@ class TestPortfolioBacktestEndpoint:
             }
         )
 
-        assert response.status_code == 200
+        assert response.status_code == 202
         data = response.json()
         assert "batch_id" in data
-        assert data["status"] == "completed"
+        assert data["status"] == "pending"
         assert data["symbols_requested"] == 2
-        assert data["symbols_completed"] is not None
 
     @patch('src.data.YahooDataLoader')
     def test_submit_portfolio_with_config(self, mock_loader_class, client, sample_ohlcv_data):
-        """Test portfolio backtest with custom configuration."""
         mock_loader = Mock()
         mock_loader.load.return_value = sample_ohlcv_data
         mock_loader_class.return_value = mock_loader
@@ -101,12 +109,11 @@ class TestPortfolioBacktestEndpoint:
             }
         )
 
-        assert response.status_code == 200
+        assert response.status_code == 202
         data = response.json()
-        assert data["status"] == "completed"
+        assert data["status"] == "pending"
 
     def test_submit_portfolio_empty_symbols(self, client):
-        """Test that empty symbol list returns 422."""
         response = client.post(
             "/api/v1/backtest/portfolio",
             json={
@@ -119,7 +126,6 @@ class TestPortfolioBacktestEndpoint:
         assert response.status_code == 422
 
     def test_submit_portfolio_invalid_strategy(self, client):
-        """Test that invalid strategy returns 422."""
         response = client.post(
             "/api/v1/backtest/portfolio",
             json={
@@ -132,7 +138,6 @@ class TestPortfolioBacktestEndpoint:
         assert response.status_code == 422
 
     def test_submit_portfolio_invalid_date_format(self, client):
-        """Test that invalid date format returns 422."""
         response = client.post(
             "/api/v1/backtest/portfolio",
             json={
@@ -145,13 +150,15 @@ class TestPortfolioBacktestEndpoint:
         assert response.status_code == 422
 
     @patch('src.data.YahooDataLoader')
-    def test_submit_portfolio_partial_failure(self, mock_loader_class, client, sample_ohlcv_data):
-        """Test portfolio backtest with some symbol failures."""
+    def test_submit_portfolio_partial_failure(self, mock_loader_class, client, sample_ohlcv_data, db_session):
+        """Partial failure: task runs synchronously, then GET returns actual status."""
         mock_loader = Mock()
+
         def load_side_effect(symbol, start, end):
             if symbol == "INVALID":
                 return pd.DataFrame()
             return sample_ohlcv_data
+
         mock_loader.load.side_effect = load_side_effect
         mock_loader_class.return_value = mock_loader
 
@@ -164,9 +171,16 @@ class TestPortfolioBacktestEndpoint:
             }
         )
 
-        assert response.status_code == 200
-        data = response.json()
-        assert data["symbols_failed"] >= 1
+        assert response.status_code == 202
+        batch_id = response.json()["batch_id"]
+
+        # With task_always_eager, the task already ran. Poll to verify.
+        db_session.expire_all()
+        portfolio = db_session.query(PortfolioResult).filter(
+            PortfolioResult.batch_id == batch_id
+        ).first()
+        assert portfolio is not None
+        assert portfolio.symbols_failed >= 1
 
 
 class TestGetPortfolioEndpoint:
@@ -174,7 +188,7 @@ class TestGetPortfolioEndpoint:
 
     @patch('src.data.YahooDataLoader')
     def test_get_portfolio_success(self, mock_loader_class, client, sample_ohlcv_data):
-        """Test successful portfolio retrieval."""
+        """POST enqueues, task runs synchronously, GET returns completed result."""
         mock_loader = Mock()
         mock_loader.load.return_value = sample_ohlcv_data
         mock_loader_class.return_value = mock_loader
@@ -187,6 +201,7 @@ class TestGetPortfolioEndpoint:
                 "start": "2023-01-01"
             }
         )
+        assert submit_response.status_code == 202
         batch_id = submit_response.json()["batch_id"]
 
         response = client.get(f"/api/v1/backtest/portfolio/{batch_id}")
@@ -194,10 +209,10 @@ class TestGetPortfolioEndpoint:
         assert response.status_code == 200
         data = response.json()
         assert data["batch_id"] == batch_id
+        assert data["status"] == "completed"
         assert "results_by_symbol" in data
 
     def test_get_portfolio_not_found(self, client):
-        """Test that non-existent batch returns 404."""
         response = client.get("/api/v1/backtest/portfolio/nonexistent-batch-id")
 
         assert response.status_code == 404
@@ -209,7 +224,6 @@ class TestTradesEndpoint:
 
     @patch('src.data.YahooDataLoader')
     def test_get_trades_success(self, mock_loader_class, client, sample_ohlcv_data):
-        """Test successful trade ledger retrieval."""
         mock_loader = Mock()
         mock_loader.load.return_value = sample_ohlcv_data
         mock_loader_class.return_value = mock_loader
@@ -222,6 +236,7 @@ class TestTradesEndpoint:
                 "start": "2023-01-01"
             }
         )
+        assert submit_response.status_code == 202
         batch_id = submit_response.json()["batch_id"]
 
         response = client.get(f"/api/v1/backtest/portfolio/{batch_id}/trades")
@@ -234,7 +249,6 @@ class TestTradesEndpoint:
 
     @patch('src.data.YahooDataLoader')
     def test_get_trades_with_symbol_filter(self, mock_loader_class, client, sample_ohlcv_data):
-        """Test trade retrieval with symbol filter."""
         mock_loader = Mock()
         mock_loader.load.return_value = sample_ohlcv_data
         mock_loader_class.return_value = mock_loader
@@ -247,6 +261,7 @@ class TestTradesEndpoint:
                 "start": "2023-01-01"
             }
         )
+        assert submit_response.status_code == 202
         batch_id = submit_response.json()["batch_id"]
 
         response = client.get(
@@ -260,14 +275,12 @@ class TestTradesEndpoint:
             assert trade["symbol"] == "AAPL"
 
     def test_get_trades_not_found(self, client):
-        """Test that non-existent batch returns 404."""
         response = client.get("/api/v1/backtest/portfolio/nonexistent/trades")
 
         assert response.status_code == 404
 
     @patch('src.data.YahooDataLoader')
     def test_get_trades_pagination(self, mock_loader_class, client, sample_ohlcv_data):
-        """Test trade ledger pagination."""
         mock_loader = Mock()
         mock_loader.load.return_value = sample_ohlcv_data
         mock_loader_class.return_value = mock_loader
@@ -280,6 +293,7 @@ class TestTradesEndpoint:
                 "start": "2023-01-01"
             }
         )
+        assert submit_response.status_code == 202
         batch_id = submit_response.json()["batch_id"]
 
         response = client.get(
@@ -298,7 +312,6 @@ class TestMultiStrategyEndpoint:
 
     @patch('src.data.YahooDataLoader')
     def test_multi_strategy_success(self, mock_loader_class, client, sample_ohlcv_data):
-        """Test successful multi-strategy backtest."""
         mock_loader = Mock()
         mock_loader.load.return_value = sample_ohlcv_data
         mock_loader_class.return_value = mock_loader
@@ -325,7 +338,6 @@ class TestMultiStrategyEndpoint:
 
     @patch('src.data.YahooDataLoader')
     def test_multi_strategy_or_combination(self, mock_loader_class, client, sample_ohlcv_data):
-        """Test multi-strategy with OR combination."""
         mock_loader = Mock()
         mock_loader.load.return_value = sample_ohlcv_data
         mock_loader_class.return_value = mock_loader
@@ -348,7 +360,6 @@ class TestMultiStrategyEndpoint:
         assert data["combination_method"] == "or"
 
     def test_multi_strategy_empty_strategies(self, client):
-        """Test that empty strategies list returns 422."""
         response = client.post(
             "/api/v1/backtest/multi-strategy",
             json={
@@ -361,7 +372,6 @@ class TestMultiStrategyEndpoint:
         assert response.status_code == 422
 
     def test_multi_strategy_invalid_strategy_type(self, client):
-        """Test that invalid strategy type returns 422."""
         response = client.post(
             "/api/v1/backtest/multi-strategy",
             json={
@@ -376,7 +386,6 @@ class TestMultiStrategyEndpoint:
         assert response.status_code == 422
 
     def test_multi_strategy_missing_type(self, client):
-        """Test that strategy without type returns 422."""
         response = client.post(
             "/api/v1/backtest/multi-strategy",
             json={
@@ -395,7 +404,6 @@ class TestSymbolsEndpoint:
     """Tests for GET /api/v1/symbols"""
 
     def test_list_symbols_yahoo(self, client):
-        """Test listing symbols from Yahoo source."""
         response = client.get("/api/v1/symbols", params={"source": "yahoo"})
 
         assert response.status_code == 200
@@ -406,7 +414,6 @@ class TestSymbolsEndpoint:
         assert "symbol" in data["symbols"][0]
 
     def test_list_symbols_with_sector_filter(self, client):
-        """Test listing symbols with sector filter."""
         response = client.get(
             "/api/v1/symbols",
             params={"source": "yahoo", "sector": "Technology"}
@@ -418,7 +425,6 @@ class TestSymbolsEndpoint:
             assert symbol["sector"] == "Technology"
 
     def test_list_symbols_pagination(self, client):
-        """Test symbol list pagination."""
         response = client.get(
             "/api/v1/symbols",
             params={"source": "yahoo", "limit": 5, "offset": 0}
@@ -429,7 +435,6 @@ class TestSymbolsEndpoint:
         assert len(data["symbols"]) <= 5
 
     def test_list_symbols_invalid_source(self, client):
-        """Test that invalid source returns 400."""
         response = client.get("/api/v1/symbols", params={"source": "invalid"})
 
         assert response.status_code == 400
@@ -439,7 +444,6 @@ class TestPydanticModels:
     """Tests for Pydantic model validation."""
 
     def test_portfolio_request_symbol_normalization(self, client):
-        """Test that symbols are normalized to uppercase."""
         from src.models import PortfolioBacktestRequest
 
         request = PortfolioBacktestRequest(
@@ -451,7 +455,6 @@ class TestPydanticModels:
         assert request.symbols == ["AAPL", "MSFT"]
 
     def test_portfolio_request_duplicate_removal(self, client):
-        """Test that duplicate symbols are removed."""
         from src.models import PortfolioBacktestRequest
 
         request = PortfolioBacktestRequest(
@@ -463,7 +466,6 @@ class TestPydanticModels:
         assert len(request.symbols) == 2
 
     def test_backtest_config_validation(self):
-        """Test BacktestConfigModel validation."""
         from src.models import BacktestConfigModel
 
         config = BacktestConfigModel(
@@ -476,7 +478,6 @@ class TestPydanticModels:
         assert config.position_sizing == "atr"
 
     def test_backtest_config_invalid_position_sizing(self):
-        """Test that invalid position_sizing raises error."""
         from src.models import BacktestConfigModel
         from pydantic import ValidationError
 
@@ -484,7 +485,6 @@ class TestPydanticModels:
             BacktestConfigModel(position_sizing="invalid")
 
     def test_multi_strategy_request_validation(self):
-        """Test MultiStrategyRequest validation."""
         from src.models import MultiStrategyRequest
 
         request = MultiStrategyRequest(
@@ -505,7 +505,7 @@ class TestDatabaseIntegration:
 
     @patch('src.data.YahooDataLoader')
     def test_portfolio_result_persisted(self, mock_loader_class, client, sample_ohlcv_data, db_session):
-        """Test that portfolio results are persisted to database."""
+        """With task_always_eager, task runs synchronously so DB is populated by the time we query."""
         mock_loader = Mock()
         mock_loader.load.return_value = sample_ohlcv_data
         mock_loader_class.return_value = mock_loader
@@ -518,8 +518,10 @@ class TestDatabaseIntegration:
                 "start": "2023-01-01"
             }
         )
+        assert response.status_code == 202
         batch_id = response.json()["batch_id"]
 
+        db_session.expire_all()
         portfolio = db_session.query(PortfolioResult).filter(
             PortfolioResult.batch_id == batch_id
         ).first()
@@ -529,7 +531,6 @@ class TestDatabaseIntegration:
 
     @patch('src.data.YahooDataLoader')
     def test_symbol_results_persisted(self, mock_loader_class, client, sample_ohlcv_data, db_session):
-        """Test that symbol results are persisted to database."""
         mock_loader = Mock()
         mock_loader.load.return_value = sample_ohlcv_data
         mock_loader_class.return_value = mock_loader
@@ -542,8 +543,10 @@ class TestDatabaseIntegration:
                 "start": "2023-01-01"
             }
         )
+        assert response.status_code == 202
         batch_id = response.json()["batch_id"]
 
+        db_session.expire_all()
         symbol_results = db_session.query(SymbolResult).filter(
             SymbolResult.batch_id == batch_id
         ).all()
@@ -552,7 +555,6 @@ class TestDatabaseIntegration:
 
     @patch('src.data.YahooDataLoader')
     def test_trades_persisted(self, mock_loader_class, client, sample_ohlcv_data, db_session):
-        """Test that trades are persisted to database."""
         mock_loader = Mock()
         mock_loader.load.return_value = sample_ohlcv_data
         mock_loader_class.return_value = mock_loader
@@ -565,8 +567,10 @@ class TestDatabaseIntegration:
                 "start": "2023-01-01"
             }
         )
+        assert response.status_code == 202
         batch_id = response.json()["batch_id"]
 
+        db_session.expire_all()
         trades = db_session.query(TradeLedgerEntry).filter(
             TradeLedgerEntry.batch_id == batch_id
         ).all()
