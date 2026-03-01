@@ -6,6 +6,7 @@ export class PortfolioResults {
   constructor(container) {
     this.container = container;
     this.onViewTrades = null;
+    this.onCompare = null;
     this.equityCurveChart = null;
   }
 
@@ -88,17 +89,24 @@ export class PortfolioResults {
     }
 
     const logText = formatSystemLog(data);
+    const reqIdHtml = data._request_id
+      ? `<span class="console-output__request-id" data-rid="${data._request_id}">ID: ${data._request_id.slice(0, 8)}&hellip;</span>`
+      : '';
 
     this.container.innerHTML = `
       ${summary}
       ${failedHtml}
       <div id="portfolioChartContainer"></div>
       ${tableHtml}
-      <button type="button" id="viewTradesBtn" class="btn-sm" style="margin-top:1rem;">View Trade Ledger</button>
+      <div style="display:flex; gap:0.5rem; margin-top:1rem;">
+        <button type="button" id="viewTradesBtn" class="btn-sm">View Trade Ledger</button>
+        <button type="button" id="compareRunsBtn" class="btn-sm">Compare Runs</button>
+      </div>
       <div class="console-output console-output--collapsed" id="systemLog" style="margin-top:1rem;">
         <div class="console-output__header" id="systemLogHeader">
           <span class="console-output__icon">▸</span>
           <span class="console-output__title">SYSTEM LOG</span>
+          ${reqIdHtml}
         </div>
         <div class="console-output__content">
           <pre class="console-output__json">${logText}</pre>
@@ -117,10 +125,25 @@ export class PortfolioResults {
       if (this.onViewTrades) this.onViewTrades(data.batch_id);
     });
 
+    this.container.querySelector('#compareRunsBtn').addEventListener('click', () => {
+      if (this.onCompare) this.onCompare(data.batch_id);
+    });
+
     const logHeader = this.container.querySelector('#systemLogHeader');
     const logContainer = this.container.querySelector('#systemLog');
     logHeader.addEventListener('click', () => {
       logContainer.classList.toggle('console-output--collapsed');
     });
+
+    const ridEl = this.container.querySelector('.console-output__request-id');
+    if (ridEl) {
+      ridEl.addEventListener('click', e => {
+        e.stopPropagation();
+        navigator.clipboard?.writeText(ridEl.dataset.rid).catch(() => {});
+        const orig = ridEl.textContent;
+        ridEl.textContent = 'Copied!';
+        setTimeout(() => { ridEl.textContent = orig; }, 1200);
+      });
+    }
   }
 }

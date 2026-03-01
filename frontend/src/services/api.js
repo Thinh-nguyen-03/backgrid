@@ -1,6 +1,7 @@
 import { API_BASE } from '../config/constants.js';
 
 async function handleResponse(res) {
+  const requestId = res.headers.get('x-request-id') || null;
   const body = await res.json();
   if (!res.ok) {
     if (res.status === 422 && body.detail) {
@@ -10,6 +11,9 @@ async function handleResponse(res) {
       throw new Error(`Validation error: ${msg}`);
     }
     throw new Error(body.error || body.detail || 'Unknown error');
+  }
+  if (requestId && body && typeof body === 'object') {
+    body._request_id = requestId;
   }
   return body;
 }
@@ -39,6 +43,23 @@ export class BacktestAPI {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(payload),
     });
+    return handleResponse(res);
+  }
+
+  static async getPortfolioResult(batchId) {
+    const res = await fetch(`${API_BASE}/backtest/portfolio/${encodeURIComponent(batchId)}`);
+    return handleResponse(res);
+  }
+
+  static async diffBacktests(a, b) {
+    const res = await fetch(
+      `${API_BASE}/backtest/diff?a=${encodeURIComponent(a)}&b=${encodeURIComponent(b)}`
+    );
+    return handleResponse(res);
+  }
+
+  static async getHealth() {
+    const res = await fetch(`${API_BASE}/health`);
     return handleResponse(res);
   }
 

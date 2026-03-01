@@ -10,6 +10,7 @@ import './styles/utilities.css';
 import './styles/preset-selector.css';
 import './styles/import-wizard.css';
 import './styles/components/freshness.css';
+import './styles/diff-modal.css';
 
 import flatpickr from 'flatpickr';
 import 'flatpickr/dist/flatpickr.min.css';
@@ -33,6 +34,8 @@ import { PresetSelector } from './components/PresetSelector.js';
 import { StrategyImportWizard } from './components/StrategyImportWizard.js';
 import { DataFreshnessIndicator } from './components/DataFreshnessIndicator.js';
 import { UniverseValidator } from './components/UniverseValidator.js';
+import { HealthIndicator } from './components/HealthIndicator.js';
+import { DiffModal } from './components/DiffModal.js';
 
 const appState = new AppState();
 
@@ -52,6 +55,8 @@ const presetSelector = new PresetSelector(document.getElementById('presetSection
 const importWizard = new StrategyImportWizard();
 const freshnessIndicator = new DataFreshnessIndicator(document.getElementById('freshnessIndicator'));
 const universeValidator = new UniverseValidator(document.getElementById('universeValidation'));
+const healthIndicator = new HealthIndicator(document.getElementById('healthIndicator'));
+const diffModal = new DiffModal();
 
 // Init components
 header.init();
@@ -63,6 +68,7 @@ jobHistory.render();
 helpModal.init();
 presetSelector.init();
 freshnessIndicator.init();
+healthIndicator.init();
 
 // Theme toggle handler
 const themeToggle = document.getElementById('themeToggle');
@@ -158,7 +164,6 @@ universeValidator.onAdjustDate = (dateStr) => {
   const startInput = document.getElementById('startDate');
   if (startInput) {
     startInput.value = dateStr;
-    // Update flatpickr instance if available
     if (startInput._flatpickr) {
       startInput._flatpickr.setDate(dateStr, true);
     }
@@ -194,6 +199,45 @@ portfolioResults.onViewTrades = (batchId) => {
   tradeLedgerModal.open(batchId);
 };
 
+// Wire up diff modal from portfolio results
+portfolioResults.onCompare = (batchId) => {
+  diffModal.open(batchId);
+};
+
+// Polling helpers
+function sleep(ms) {
+  return new Promise(resolve => setTimeout(resolve, ms));
+}
+
+async function pollPortfolio(batchId, totalSymbols) {
+  const resultsEl = document.getElementById('results');
+  const MAX_POLLS = 60; // 2 min max
+  let result = { batch_id: batchId, status: 'pending', symbols_completed: 0 };
+
+  for (let i = 0; i < MAX_POLLS; i++) {
+    const completed = result.symbols_completed ?? 0;
+    const pct = totalSymbols > 0 ? Math.round((completed / totalSymbols) * 100) : 0;
+    resultsEl.innerHTML = `
+      <div class="progress-card">
+        <div class="progress-card__title">Portfolio Backtest Running</div>
+        <div class="progress-card__batch">${batchId}</div>
+        <div class="progress-bar-wrap">
+          <div class="progress-bar-fill" style="width:${pct}%"></div>
+        </div>
+        <div class="progress-card__count">${completed} / ${totalSymbols} symbols</div>
+        <div class="progress-card__status">${(result.status || 'pending').toUpperCase()}</div>
+      </div>
+    `;
+
+    await sleep(2000);
+    result = await BacktestAPI.getPortfolioResult(batchId);
+
+    if (result.status !== 'pending' && result.status !== 'running') break;
+  }
+
+  return result;
+}
+
 // Form submit
 const form = document.getElementById('form');
 const submitBtn = document.getElementById('submitBtn');
@@ -212,12 +256,11 @@ form.addEventListener('submit', async (e) => {
     let data;
 
     if (mode === MODES.PORTFOLIO) {
-      // Portfolio batch
       const symbols = portfolioMode.getSymbols();
       if (symbols.length === 0) throw new Error('Enter at least one symbol');
 
       const stratParams = strategySelector.getParams();
-      resultsDisplay.showLoading(`Processing ${symbols.length} symbols...`);
+      resultsDisplay.showLoading(`Submitting ${symbols.length} symbols...`);
 
       data = await BacktestAPI.submitPortfolioBacktest({
         symbols,
@@ -227,6 +270,15 @@ form.addEventListener('submit', async (e) => {
         end: dates.end,
         config,
       });
+
+      // Poll if the job was accepted asynchronously
+      if (data.status === 'pending' || data.status === 'running') {
+        data = await pollPortfolio(data.batch_id, data.symbols_requested ?? symbols.length);
+      }
+
+      if (data.status === 'failed') {
+        throw new Error(data.error || 'Portfolio backtest failed');
+      }
 
       appState.setState({ results: data, resultType: 'portfolio' });
       portfolioResults.container = document.getElementById('results');
@@ -244,7 +296,6 @@ form.addEventListener('submit', async (e) => {
       });
 
     } else if (strategy === STRATEGIES.COMBINED) {
-      // Multi-strategy single symbol
       const symbol = portfolioMode.getSymbol();
       const stratParams = strategySelector.getParams();
       resultsDisplay.showLoading('Running multi-strategy backtest...');
@@ -281,7 +332,6 @@ form.addEventListener('submit', async (e) => {
       });
 
     } else {
-      // Single symbol, single strategy
       const symbol = portfolioMode.getSymbol();
       const stratParams = strategySelector.getParams();
       resultsDisplay.showLoading('Running backtest...');

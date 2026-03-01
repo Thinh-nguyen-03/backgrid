@@ -54,6 +54,9 @@ export class ResultsDisplay {
     }
 
     const logText = formatSystemLog(data);
+    const reqIdHtml = data._request_id
+      ? `<span class="console-output__request-id" data-rid="${data._request_id}">ID: ${data._request_id.slice(0, 8)}&hellip;</span>`
+      : '';
 
     this.container.innerHTML = `
       ${extra}
@@ -70,6 +73,7 @@ export class ResultsDisplay {
         <div class="console-output__header" id="systemLogHeader">
           <span class="console-output__icon">▸</span>
           <span class="console-output__title">SYSTEM LOG</span>
+          ${reqIdHtml}
         </div>
         <div class="console-output__content">
           <pre class="console-output__json">${logText}</pre>
@@ -82,5 +86,16 @@ export class ResultsDisplay {
     logHeader.addEventListener('click', () => {
       logContainer.classList.toggle('console-output--collapsed');
     });
+
+    const ridEl = this.container.querySelector('.console-output__request-id');
+    if (ridEl) {
+      ridEl.addEventListener('click', e => {
+        e.stopPropagation();
+        navigator.clipboard?.writeText(ridEl.dataset.rid).catch(() => {});
+        const orig = ridEl.textContent;
+        ridEl.textContent = 'Copied!';
+        setTimeout(() => { ridEl.textContent = orig; }, 1200);
+      });
+    }
   }
 }
