@@ -30,7 +30,7 @@ try:
     from .api_portfolio import symbols_router
     from .api_presets import router as presets_router
     from .api_extraction import router as extraction_router
-    from .api_sp500_history import router as sp500_history_router
+    from .api_sp500_history import router as sp500_history_router, run_auto_update_loop
 except ImportError:
     import os
 
@@ -60,7 +60,7 @@ except ImportError:
     from api_portfolio import symbols_router
     from api_presets import router as presets_router
     from api_extraction import router as extraction_router
-    from api_sp500_history import router as sp500_history_router
+    from api_sp500_history import router as sp500_history_router, run_auto_update_loop
 
 configure_logging()
 logger = logging.getLogger(__name__)
@@ -79,9 +79,12 @@ class RequestIdMiddleware(BaseHTTPMiddleware):
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    import asyncio
     init_db()
     logger.info("Starting Backgrid API")
+    update_task = asyncio.create_task(run_auto_update_loop())
     yield
+    update_task.cancel()
     logger.info("Shutting down Backgrid API")
 
 
@@ -127,6 +130,18 @@ async def health_check(response: Response, db: Session = Depends(get_db)):
         deps["redis"] = {"status": "ok", "latency_ms": round((time.monotonic() - t0) * 1000, 2)}
     except Exception:
         deps["redis"] = {"status": "unavailable"}
+
+    # Report yfinance circuit breaker state (non-critical)
+    try:
+        from .data.yahoo_loader import _yfinance_circuit
+        circuit = _yfinance_circuit.status()
+        deps["yfinance"] = {
+            "status": circuit["state"],
+            "failure_count": circuit["failure_count"],
+            "last_success_seconds_ago": circuit["last_success_seconds_ago"],
+        }
+    except Exception:
+        deps["yfinance"] = {"status": "unknown"}
 
     if overall == "degraded":
         response.status_code = 503

@@ -128,21 +128,14 @@ class UpdateRequest(BaseModel):
 
 @router.post("/update", response_model=UpdateResult)
 async def trigger_update():
-    """Trigger AI-powered data update from S&P Global.
+    """Fetch latest S&P 500 constituent changes from Wikipedia and apply them.
 
-    Rate limited to 1 request per hour. Requires ANTHROPIC_API_KEY env var.
+    Rate limited to 1 request per hour.
     """
     if _updater.is_rate_limited():
         raise HTTPException(
             status_code=429,
             detail="Update rate limited. Try again later (max 1 per hour).",
-        )
-
-    api_key = settings.anthropic_api_key
-    if not api_key:
-        raise HTTPException(
-            status_code=503,
-            detail="ANTHROPIC_API_KEY not configured. AI-powered updates unavailable.",
         )
 
     result = await asyncio.to_thread(_updater.update)
@@ -151,3 +144,34 @@ async def trigger_update():
         raise HTTPException(status_code=502, detail=result.error or "Update failed")
 
     return result
+
+
+async def run_auto_update_loop() -> None:
+    """Background task: check and update S&P 500 constituent data daily.
+
+    Runs an initial check 60 seconds after startup, then every 24 hours.
+    Only triggers a Wikipedia scrape if data is 7 or more days old.
+    """
+    await asyncio.sleep(60)
+    while True:
+        try:
+            status = _updater.check_for_updates()
+            if status.days_since_update >= 7:
+                logger.info(
+                    f"sp500_auto_update_triggered days_since={status.days_since_update}"
+                )
+                result = await asyncio.to_thread(_updater.update)
+                if result.success:
+                    logger.info(
+                        f"sp500_auto_update_complete changes={result.changes_applied} "
+                        f"new_date={result.new_date}"
+                    )
+                else:
+                    logger.warning(f"sp500_auto_update_failed error={result.error}")
+            else:
+                logger.debug(
+                    f"sp500_auto_update_skipped days_since={status.days_since_update}"
+                )
+        except Exception as e:
+            logger.error(f"sp500_auto_update_error error={e}")
+        await asyncio.sleep(24 * 3600)
