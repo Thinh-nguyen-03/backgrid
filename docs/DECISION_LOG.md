@@ -1193,6 +1193,59 @@ Based on external senior engineering review. 11 improvements prioritized to reso
 
 ---
 
+## S&P 500 Updater: Remove API Key Gate + Add Background Scheduler (2026-03-01)
+
+### Decision: Remove ANTHROPIC_API_KEY Requirement from Update Endpoint
+
+**Date**: 2026-03-01
+
+**Problem**: `POST /api/v1/sp500-history/update` checked for `ANTHROPIC_API_KEY` before running. The endpoint only performs a plain HTTP scrape of Wikipedia — it never calls the Anthropic API. The check was a leftover from an earlier design idea that was never implemented, and blocked updates in any environment without the key configured.
+
+**Decision**: Remove the gate entirely. The endpoint is rate-limited to 1 request per hour, which is sufficient protection.
+
+**Impact**: Update button works in all environments. No external API key required for constituent data maintenance.
+
+---
+
+### Decision: asyncio Background Scheduler for S&P 500 Auto-Updates
+
+**Date**: 2026-03-01
+
+**Problem**: The S&P 500 interval data requires periodic updates to stay current as constituents change (~20-30 times per year). Users had to manually click an update button in the UI; data would silently become stale if they forgot.
+
+**Alternatives Considered**:
+
+1. **Celery Beat**: Proper distributed scheduler, works across multiple workers. Requires Redis + a dedicated `celery beat` process. Overkill for a single-instance deployment; adds operational complexity locally.
+2. **APScheduler**: In-process scheduler library. Adds a dependency for something asyncio handles natively.
+3. **asyncio background task in lifespan**: Zero dependencies, runs in the same process as uvicorn, cancels cleanly on shutdown. Sufficient for single-instance deployments.
+4. **External cron**: OS-level or cloud-level cron job hitting the update endpoint. Works anywhere but requires external configuration.
+
+**Decision**: asyncio task started in the FastAPI `lifespan` context manager. Checks data freshness once at startup (after a 60-second delay) and every 24 hours thereafter. Only triggers a Wikipedia scrape if data is ≥7 days old.
+
+**Implementation**:
+- `run_auto_update_loop()` in `src/api_sp500_history.py`
+- Started via `asyncio.create_task()` in `src/api.py` lifespan
+- Shares the same `SP500Updater` instance as the manual endpoint, so the 1-hour rate limiter applies to both
+
+**Hosting Considerations**:
+
+| Deployment | Behavior | Action Required |
+|---|---|---|
+| Single process (local, VPS, Render, Fly.io, Railway) | Works correctly — one task, one updater | None |
+| Multi-worker (Gunicorn multi-worker, multiple replicas) | Each worker spawns its own task; rate limiter is in-memory and not shared across processes — concurrent writes to `sp500_intervals.json` are a race condition | Migrate scheduler to Celery Beat; Redis is already a dependency in that scenario |
+| Serverless (Lambda, Cloud Functions) | asyncio task sleeps 60s on startup and never fires before function timeout | Use an external cron trigger instead |
+
+**Current deployment target**: single instance. The asyncio approach is correct for this scope.
+
+**If/when to migrate to Celery Beat**: When scaling to multiple workers. At that point, Redis is already running, and adding a `beat_schedule` entry to `src/worker.py` is the natural next step.
+
+**Tradeoffs**:
+- Does not survive process restarts mid-sleep (acceptable — data is checked again 60s after each restart)
+- Rate limiter state is lost on restart (acceptable — worst case is one extra Wikipedia request)
+- Manual update button and background task share the same rate limit window (intentional — prevents double-firing)
+
+---
+
 ## Principles
 
 1. **No technology without a trigger**: Add complexity only when measurements show the need
