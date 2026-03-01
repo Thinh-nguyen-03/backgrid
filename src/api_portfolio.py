@@ -1,6 +1,7 @@
 """Portfolio API endpoints."""
 
 import logging
+import threading
 import uuid
 from datetime import datetime, timezone
 from typing import Optional, Dict, Any, List
@@ -96,7 +97,7 @@ async def submit_portfolio_backtest(
         config=config_dict,
     )
 
-    run_portfolio_backtest_task.delay(
+    task_kwargs = dict(
         batch_id=batch_id,
         symbols=request.symbols,
         strategy=request.strategy.value,
@@ -105,6 +106,19 @@ async def submit_portfolio_backtest(
         end_date=request.end,
         config_dict=config_dict,
     )
+
+    try:
+        run_portfolio_backtest_task.delay(**task_kwargs)
+    except Exception as broker_err:
+        logger.warning(
+            f"Celery broker unavailable ({broker_err}), falling back to in-process thread"
+        )
+        t = threading.Thread(
+            target=run_portfolio_backtest_task.apply,
+            kwargs={"kwargs": task_kwargs},
+            daemon=True,
+        )
+        t.start()
 
     return PortfolioBacktestResponse(
         batch_id=batch_id,
