@@ -127,10 +127,23 @@ body.dark-mode .preset-card__name {
 }
 
 body.dark-mode .preset-card__desc {
-  color: #999;
+  color: #bbb;
 }
 
 body.dark-mode .preset-selector__filter {
   border-color: #555;
   box-shadow: 2px 2px 0px #555;
+  color: #fff;
+}
+
+body.dark-mode .preset-selector__empty {
+  color: #999;
+}
+
+body.dark-mode .preset-card__risk {
+  border-color: #555;
+}
+
+body.dark-mode .preset-card__meta {
+  color: #bbb;
 }

@@ -168,6 +168,16 @@ body.dark-mode .config-section {
   font-weight: 600;
 }
 
+body.dark-mode .section-badge {
+  border-color: #555;
+  box-shadow: 4px 4px 0px #555;
+}
+
+body.dark-mode .history-item__sharpe {
+  border-color: #555;
+  box-shadow: 2px 2px 0px #555;
+}
+
 body.dark-mode .history-item {
   background: #1f1f1f;
   border-color: #ffffff;
@@ -183,11 +193,11 @@ body.dark-mode .history-item__symbol {
 }
 
 body.dark-mode .history-item__details {
-  color: #a8a8a8;
+  color: #c0c0c0;
 }
 
 body.dark-mode .history-item__timestamp {
-  color: #a8a8a8;
+  color: #c0c0c0;
 }
 
 body.dark-mode .history-item__divider {

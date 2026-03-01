@@ -215,6 +215,11 @@ button.btn-sm--danger {
   color: var(--color-ink);
 }
 
+body.dark-mode .input-group label {
+  border-color: #555;
+  box-shadow: 2px 2px 0px #555;
+}
+
 body.dark-mode .mode-toggle {
   border-color: #ffffff;
 }
@@ -301,6 +306,11 @@ body.dark-mode .input-group textarea {
   color: #ffffff;
   border-color: #ffffff;
   box-shadow: 2px 2px 0px #ffffff;
+}
+
+body.dark-mode .input-group input::placeholder,
+body.dark-mode .input-group textarea::placeholder {
+  color: #888;
 }
 
 body.dark-mode .input-group input:focus,

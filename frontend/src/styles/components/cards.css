@@ -187,8 +187,8 @@ body.dark-mode .kpi-card {
 
 body.dark-mode .kpi-card--primary {
   background: var(--color-accent-pop);
-  border-color: #020617;
-  box-shadow: 8px 8px 0px #020617;
+  border-color: #555;
+  box-shadow: 8px 8px 0px #555;
 }
 
 body.dark-mode .kpi-card__label {
@@ -198,7 +198,7 @@ body.dark-mode .kpi-card__label {
 
 body.dark-mode .kpi-card--primary .kpi-card__label {
   color: #020617;
-  border-bottom-color: #020617;
+  border-bottom-color: #555;
 }
 
 body.dark-mode .kpi-card__value {
@@ -342,4 +342,115 @@ body.dark-mode .kpi-card--neutral {
   position: relative;
   width: 100%;
   height: 300px;
+}
+
+/* Portfolio async progress card */
+.progress-card {
+  background: var(--bg-panel);
+  border: var(--border-thick);
+  box-shadow: var(--shadow-hard);
+  padding: 2.5rem;
+  max-width: 480px;
+  margin: 3rem auto;
+  text-align: center;
+}
+
+.progress-card__title {
+  font-family: var(--font-head);
+  font-size: 1rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--color-ink);
+  margin-bottom: 0.75rem;
+}
+
+.progress-card__batch {
+  font-family: var(--font-mono);
+  font-size: 0.62rem;
+  font-weight: 700;
+  color: var(--color-text-sub);
+  margin-bottom: 1.5rem;
+  word-break: break-all;
+}
+
+.progress-bar-wrap {
+  width: 100%;
+  height: 14px;
+  background: var(--bg-app);
+  border: var(--border-thick);
+  box-shadow: 3px 3px 0px var(--color-ink);
+  margin-bottom: 1rem;
+  overflow: hidden;
+}
+
+.progress-bar-fill {
+  height: 100%;
+  background: var(--color-accent-pop);
+  transition: width 0.5s ease;
+}
+
+.progress-card__count {
+  font-family: var(--font-mono);
+  font-size: 0.9rem;
+  font-weight: 700;
+  color: var(--color-ink);
+  margin-bottom: 0.4rem;
+}
+
+.progress-card__status {
+  font-family: var(--font-mono);
+  font-size: 0.7rem;
+  font-weight: 700;
+  color: var(--color-text-sub);
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+}
+
+body.dark-mode .progress-card {
+  border-color: #fff;
+  box-shadow: 6px 6px 0px #fff;
+}
+
+body.dark-mode .progress-card__title,
+body.dark-mode .progress-card__count {
+  color: #fff;
+}
+
+body.dark-mode .progress-card__batch,
+body.dark-mode .progress-card__status {
+  color: #999;
+}
+
+body.dark-mode .kpi-card--primary .kpi-card__value {
+  color: #020617;
+}
+
+body.dark-mode .log-section__header {
+  color: #000;
+}
+
+body.dark-mode .progress-bar-wrap {
+  border-color: #555;
+  box-shadow: 3px 3px 0px #555;
+  background: #333;
+}
+
+/* Request ID chip in system log header */
+.console-output__request-id {
+  margin-left: auto;
+  font-family: var(--font-mono);
+  font-size: 0.62rem;
+  font-weight: 700;
+  color: var(--color-accent-pop);
+  border: 1px solid var(--color-accent-pop);
+  padding: 0.1rem 0.4rem;
+  cursor: pointer;
+  opacity: 0.75;
+  transition: opacity 0.1s;
+  white-space: nowrap;
+}
+
+.console-output__request-id:hover {
+  opacity: 1;
 }

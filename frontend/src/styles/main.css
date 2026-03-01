@@ -18,6 +18,7 @@
 body.dark-mode {
   --bg-app: #0f0f0f;
   --bg-panel: #1f1f1f;
+  color: #e8eaed;
 }
 
 * { box-sizing: border-box; margin: 0; padding: 0; }

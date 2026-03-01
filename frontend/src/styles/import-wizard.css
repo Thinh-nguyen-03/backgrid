@@ -348,29 +348,76 @@ body.dark-mode .wizard-steps {
 
 body.dark-mode .wizard-step {
   border-color: #555;
+  color: #d8d8d8;
+}
+
+body.dark-mode .wizard-step--active {
+  color: #020617;
+}
+
+body.dark-mode .wizard-step--done {
+  color: #fff;
 }
 
 body.dark-mode .wizard-body__input,
 body.dark-mode .wizard-body__textarea {
   border-color: #555;
   box-shadow: 2px 2px 0px #555;
+  color: #fff;
+  background: #1f1f1f;
+}
+
+body.dark-mode .wizard-body__input::placeholder,
+body.dark-mode .wizard-body__textarea::placeholder {
+  color: #888;
 }
 
 body.dark-mode .wizard-body__tab {
   border-color: #555;
+  color: #d8d8d8;
+}
+
+body.dark-mode .wizard-body__tab--active {
+  color: var(--color-accent-pop);
 }
 
 body.dark-mode .wizard-body__submit-btn {
   border-color: #555;
   box-shadow: 3px 3px 0px #555;
+  color: #020617;
+}
+
+body.dark-mode .wizard-confidence {
+  border-color: #555;
+  color: #020617;
 }
 
 body.dark-mode .wizard-review__params {
   border-color: #555;
 }
 
-body.dark-mode .wizard-confidence {
-  border-color: #555;
+body.dark-mode .wizard-body__label {
+  color: #fff;
+}
+
+body.dark-mode .wizard-review__strategy {
+  color: #fff;
+}
+
+body.dark-mode .wizard-review__param-value {
+  color: #fff;
+}
+
+body.dark-mode .wizard-review__param-key {
+  color: #999;
+}
+
+body.dark-mode .wizard-review__reasoning {
+  color: #999;
+}
+
+body.dark-mode .wizard-processing__text {
+  color: #aaa;
 }
 
 body.dark-mode .wizard-body__file-input {
@@ -381,5 +428,5 @@ body.dark-mode .wizard-body__file-input {
 
 body.dark-mode .wizard-body__file-input::file-selector-button {
   border-color: #555;
-  color: #fff;
+  color: #020617;
 }

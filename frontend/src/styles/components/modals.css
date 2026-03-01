@@ -232,6 +232,22 @@
   font-weight: 700;
 }
 
+body.dark-mode .modal,
+body.dark-mode .modal__content {
+  border-color: #555;
+  box-shadow: 12px 12px 0px #555;
+}
+
+body.dark-mode .modal__filters {
+  border-bottom-color: #555;
+}
+
+body.dark-mode .help-category__header {
+  color: #000;
+  border-color: #555;
+  box-shadow: 4px 4px 0px #555;
+}
+
 body.dark-mode .help-card {
   background: #1f1f1f;
   border-color: #ffffff;
@@ -240,6 +256,12 @@ body.dark-mode .help-card {
 
 body.dark-mode .help-card:hover {
   box-shadow: 5px 5px 0px #ffffff;
+}
+
+body.dark-mode .help-card__title {
+  color: #020617;
+  border-color: #555;
+  box-shadow: 2px 2px 0px #555;
 }
 
 body.dark-mode .help-card__value {
@@ -447,6 +469,14 @@ body.dark-mode .symbol-row:hover {
 
 body.dark-mode .symbol-row--checked {
   background: rgba(255,230,0,0.1);
+}
+
+body.dark-mode .symbol-selector-toolbar {
+  border-bottom-color: #555;
+}
+
+body.dark-mode .sector-group__header {
+  border-bottom-color: #555;
 }
 
 body.dark-mode .symbol-selected-count {

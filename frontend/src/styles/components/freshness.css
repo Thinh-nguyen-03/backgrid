@@ -360,3 +360,16 @@ body.dark-mode .validation-panel__actions {
 body.dark-mode .validation-panel__adjust-btn {
   color: #000;
 }
+
+body.dark-mode .validation-panel__symbol-status {
+  color: #999;
+}
+
+body.dark-mode .validation-panel__symbol-pct {
+  color: #e8eaed;
+}
+
+body.dark-mode .validation-panel__toggle {
+  color: #999;
+  border-left-color: #555;
+}

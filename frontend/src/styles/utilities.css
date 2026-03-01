@@ -30,3 +30,8 @@
   0% { left: -30%; }
   100% { left: 100%; }
 }
+
+body.dark-mode .loading-bar {
+  background: #555;
+  border-color: #555;
+}

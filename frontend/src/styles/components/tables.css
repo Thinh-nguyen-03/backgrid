@@ -145,6 +145,11 @@ body.dark-mode .portfolio-summary {
   box-shadow: 8px 8px 0px #020617;
 }
 
+body.dark-mode .portfolio-summary__label,
+body.dark-mode .portfolio-summary__value {
+  color: #020617;
+}
+
 body.dark-mode .pagination button {
   background: #ffffff;
   color: #020617;
