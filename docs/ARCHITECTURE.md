@@ -310,6 +310,7 @@ graph TD
 | 9 | Design Decisions documented | `docs/ARCHITECTURE.md` |
 | 10 | Wikipedia scraper hardened, `playwright` removed | `src/sp500_updater.py`, `requirements.txt` |
 | 11 | Backtest diff endpoint | `src/api_portfolio.py`, `src/models.py` |
+| 12 | S&P 500 auto-update background scheduler; API key gate removed from update endpoint | `src/api_sp500_history.py`, `src/api.py` |
 
 ### New Modules
 
@@ -379,7 +380,7 @@ Non-obvious choices and the reasoning behind them.
 | SQLite dev / PostgreSQL prod | SQLAlchemy's abstraction handles both. Zero-config local development; production-grade persistence in Docker with no application-layer changes required. |
 | JSON for presets instead of DB | Presets are read-only reference data with no user mutation. A versioned flat file is simpler, reviewable in PRs, and requires no migration when changed. |
 | Interval-based S&P 500 storage | Point-in-time membership queries require range lookups. Storing `[start, end]` intervals enables O(log n) lookups per symbol vs. scanning a daily snapshot table. |
-| Wikipedia as S&P 500 source | Pragmatic choice for a personal project. Production would use a paid data vendor (CRSP, Refinitiv) or parse SEC filings. The scraper raises a descriptive error on unexpected page structure. |
+| Wikipedia as S&P 500 source | Pragmatic choice for a personal project. Production would use a paid data vendor (CRSP, Refinitiv) or parse SEC filings. The scraper raises a descriptive error on unexpected page structure. Updates run automatically via an asyncio background task (checks daily, scrapes when data is ≥7 days old); the manual update button in the UI remains available. |
 | In-memory job store (original) | Acceptable during MVP when restarts were frequent and results were ephemeral. Replaced by full DB persistence in Phase 3 — both single jobs and portfolio batches now survive restarts. |
 | Celery with threads pool on Windows | Python 3.13 broke the `prefork` pool on Windows. `--pool=threads` restores worker functionality with a small throughput tradeoff acceptable for this use case. |
 | Pydantic Settings at module level | `settings = Settings()` raises `ValidationError` at import time if required env vars are missing, surfacing misconfiguration at startup rather than mid-request. |
