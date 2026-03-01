@@ -53,9 +53,9 @@ The root problem: state lives in four inconsistent locations.
 - `migrations/versions/` — new migration
 
 **Acceptance criteria**:
-- [ ] `GET /api/v1/jobs/{id}` returns correct result after server restart
-- [ ] All existing job endpoint tests pass
-- [ ] Job history UI stops losing data on restart
+- [x] `GET /api/v1/jobs/{id}` returns correct result after server restart
+- [x] All existing job endpoint tests pass
+- [x] Job history UI stops losing data on restart
 
 ---
 
@@ -79,9 +79,9 @@ ENABLE_LLM_EXTRACTION=false
 ```
 
 **Acceptance criteria**:
-- [ ] `git status` does not show `.env`
-- [ ] `.env.example` committed with placeholder values
-- [ ] Existing `.env` removed from git tracking (`git rm --cached .env`)
+- [x] `git status` does not show `.env`
+- [x] `.env.example` committed with placeholder values
+- [x] Existing `.env` removed from git tracking (`git rm --cached .env`)
 
 ---
 
@@ -100,9 +100,9 @@ ENABLE_LLM_EXTRACTION=false
 - `docs/SETUP.md` — add `alembic upgrade head` to setup steps
 
 **Acceptance criteria**:
-- [ ] `alembic upgrade head` runs without errors on a fresh SQLite DB
-- [ ] `alembic downgrade -1` reverts cleanly
-- [ ] `alembic revision --autogenerate` detects schema drift correctly
+- [x] `alembic upgrade head` runs without errors on a fresh SQLite DB
+- [x] `alembic downgrade -1` reverts cleanly
+- [x] `alembic revision --autogenerate` detects schema drift correctly
 
 ---
 
@@ -130,10 +130,10 @@ Requires Tier 1 complete. Addresses "right tools, incomplete pattern."
 - `src/db.py` — ensure `PortfolioResult` has `status` field
 
 **Acceptance criteria**:
-- [ ] `POST /api/v1/backtest/portfolio` returns in <100ms
-- [ ] Status transitions from `PENDING` to `COMPLETE` visible via GET
-- [ ] Worker crash leaves job in `FAILED` state, not hanging
-- [ ] 3 concurrent portfolio backtests run in parallel
+- [x] `POST /api/v1/backtest/portfolio` returns in <100ms
+- [x] Status transitions from `PENDING` to `COMPLETE` visible via GET
+- [x] Worker crash leaves job in `FAILED` state, not hanging
+- [x] 3 concurrent portfolio backtests run in parallel
 
 ---
 
@@ -152,9 +152,9 @@ Requires Tier 1 complete. Addresses "right tools, incomplete pattern."
 - `src/api_extraction.py` — replace in-memory dict with Redis client calls
 
 **Acceptance criteria**:
-- [ ] Rate limit survives API server restart
-- [ ] Rate limit shared across multiple Celery workers
-- [ ] `429 Too Many Requests` returned correctly after 10 requests/hour
+- [x] Rate limit survives API server restart
+- [x] Rate limit shared across multiple Celery workers
+- [x] `429 Too Many Requests` returned correctly after 10 requests/hour
 
 ---
 
@@ -192,9 +192,9 @@ Replace all `os.environ.get()` callsites with `from src.config import settings`.
 - `src/api.py`, `src/api_portfolio.py`, `src/api_extraction.py`, `src/worker.py`, `src/db.py` — replace env reads
 
 **Acceptance criteria**:
-- [ ] Missing required config raises `ValidationError` at startup, not mid-request
-- [ ] All env var reads route through `settings` object
-- [ ] Tests pass with existing `conftest.py` approach (env override before import)
+- [x] Missing required config raises `ValidationError` at startup, not mid-request
+- [x] All env var reads route through `settings` object
+- [x] Tests pass with existing `conftest.py` approach (env override before import)
 
 ---
 
@@ -225,10 +225,10 @@ Replace all `os.environ.get()` callsites with `from src.config import settings`.
 - `tests/test_api.py` — add dependency probe tests
 
 **Acceptance criteria**:
-- [ ] Health endpoint actively queries DB and pings Redis
-- [ ] Returns `503` when DB is unreachable
-- [ ] Returns `200` with `"yfinance": "degraded"` when Yahoo is slow
-- [ ] Probe failures don't raise unhandled exceptions
+- [x] Health endpoint actively queries DB and pings Redis
+- [x] Returns `503` when DB is unreachable
+- [x] Returns `200` with `"yfinance": "degraded"` when Yahoo is slow
+- [x] Probe failures don't raise unhandled exceptions
 
 ---
 
@@ -251,10 +251,10 @@ Replace all `os.environ.get()` callsites with `from src.config import settings`.
 - `requirements.txt` — add `python-json-logger`
 
 **Acceptance criteria**:
-- [ ] Every log line for a request shares the same `request_id`
-- [ ] Logs are valid JSON (parseable with `jq`)
-- [ ] Worker task logs include `task_id` and `batch_id`
-- [ ] No plaintext log lines remain in request handling paths
+- [x] Every log line for a request shares the same `request_id`
+- [x] Logs are valid JSON (parseable with `jq`)
+- [x] Worker task logs include `task_id` and `batch_id`
+- [x] No plaintext log lines remain in request handling paths
 
 ---
 
@@ -281,8 +281,8 @@ Replace all `os.environ.get()` callsites with `from src.config import settings`.
 - `docs/ARCHITECTURE.md` — add "Design Decisions" section
 
 **Acceptance criteria**:
-- [ ] Every non-obvious decision has a one-sentence rationale
-- [ ] Section covers all decisions listed above
+- [x] Every non-obvious decision has a one-sentence rationale
+- [x] Section covers all decisions listed above
 
 ---
 
@@ -300,10 +300,10 @@ Replace all `os.environ.get()` callsites with `from src.config import settings`.
 - `requirements.txt` — remove `playwright`, add `lxml` or `beautifulsoup4` if not present
 
 **Acceptance criteria**:
-- [ ] `playwright` removed from dependencies
-- [ ] Scraper raises descriptive error when expected column headers are absent
-- [ ] Existing S&P 500 data integrity maintained after rewrite
-- [ ] `tests/test_sp500_history.py` still passes
+- [x] `playwright` removed from dependencies
+- [x] Scraper raises descriptive error when expected column headers are absent
+- [x] Existing S&P 500 data integrity maintained after rewrite
+- [x] `tests/test_sp500_history.py` still passes
 
 ---
 
@@ -336,7 +336,7 @@ Replace all `os.environ.get()` callsites with `from src.config import settings`.
 - `tests/test_api_portfolio.py` — diff endpoint tests
 
 **Acceptance criteria**:
-- [ ] Diff between two portfolio backtests returns structured delta
-- [ ] Diff correctly handles same symbols, different parameters
-- [ ] UI displays parameter changes alongside metric changes
-- [ ] Diffing runs with different date ranges returns a clear error
+- [x] Diff between two portfolio backtests returns structured delta
+- [x] Diff correctly handles same symbols, different parameters
+- [x] UI displays parameter changes alongside metric changes
+- [x] Diffing runs with different date ranges returns a clear error
